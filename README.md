@@ -35,8 +35,12 @@ src/intraday_momentum/
     signals.py     Noise Area, VWAP-based stops, trailing daily volatility
     backtest.py    daily event loop: decisions every 30 min, flat at close, per-share costs
     metrics.py     Sharpe, CAGR, volatility, drawdown, alpha/beta
+    evaluation.py  train/test evaluation, cost sensitivity, parameter grid (shared by notebook and script)
+    diagnostics.py trade-level analysis: false breakouts, P&L by entry time / side / year
     plotting.py    figures
     synthetic.py   random-walk minute bars for tests
+notebooks/
+    backtest.ipynb     main analysis notebook (imports the package, no duplicated logic)
 scripts/
     download_data.py   Alpaca download
     run_backtest.py    full evaluation -> results/
@@ -51,7 +55,8 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && pip install -e .
 cp .env.example .env               # add your Alpaca API keys
 python scripts/download_data.py    # ~10 years of SPY minute bars into data/
-python scripts/run_backtest.py     # writes results/
+jupyter lab notebooks/backtest.ipynb   # interactive analysis
+python scripts/run_backtest.py     # same evaluation, headless -> results/
 pytest                             # run the tests
 ```
 

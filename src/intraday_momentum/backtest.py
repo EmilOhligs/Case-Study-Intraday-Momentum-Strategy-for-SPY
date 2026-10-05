@@ -99,14 +99,15 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
         pos, entry_px, entry_col = 0, np.nan, -1
         gross, n_orders, n_round_trips = 0.0, 0, 0
 
-        def close_position(exit_px: float, exit_col: int) -> None:
+        def close_position(exit_px: float, exit_col: int, reason: str) -> None:
             nonlocal gross, n_orders, n_round_trips
             pnl = pos * shares * (exit_px - entry_px)
             gross += pnl
             n_orders += 1
             n_round_trips += 1
             trades.append({"date": date, "side": pos, "entry_col": entry_col, "exit_col": exit_col,
-                           "entry_px": entry_px, "exit_px": exit_px, "shares": shares, "gross_pnl": pnl})
+                           "entry_px": entry_px, "exit_px": exit_px, "shares": shares, "gross_pnl": pnl,
+                           "exit_reason": reason})
 
         if shares > 0:
             for j in decision_cols[decision_cols < last]:
@@ -118,13 +119,13 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
                     continue
                 exec_px = data.nxt_open[i, j]             # executed at the open of the next bar
                 if pos != 0:
-                    close_position(exec_px, j)
+                    close_position(exec_px, j, "signal")
                 if new_pos != 0:
                     entry_px, entry_col = exec_px, j
                     n_orders += 1
                 pos = new_pos
             if pos != 0:                                  # flat at the close
-                close_position(data.close[i, last], last)
+                close_position(data.close[i, last], last, "close")
                 pos = 0
 
         cost = n_orders * costs.order_cost(shares) if n_orders else 0.0
