@@ -50,6 +50,14 @@ def test_vol_targeting_caps_leverage(history):
 def test_costs_reduce_returns(history):
     trend = 100 * (1 + np.linspace(0, 0.01, 391))
     data = build_day_data(bars_from_paths(history + [trend]))
-    cheap = run_backtest(data, costs=CostConfig(0.0, 0.0)).returns.sum()
+    cheap = run_backtest(data, costs=CostConfig(0.0, 0.0, 0.0)).returns.sum()
     dear = run_backtest(data, costs=CostConfig(0.0035, 0.01)).returns.sum()
     assert cheap > dear
+
+
+def test_minimum_commission_applies_to_small_orders(history):
+    trend = 100 * (1 + np.linspace(0, 0.01, 391))
+    data = build_day_data(bars_from_paths(history + [trend]))
+    costs = CostConfig(commission_per_share=0.0035, slippage_per_share=0.0, min_commission_per_order=0.35)
+    res = run_backtest(data, costs=costs, initial_capital=5_000)    # 50 shares -> 0.175 < 0.35 minimum
+    assert np.isclose(res.daily["costs"].iloc[-1], 2 * 0.35)

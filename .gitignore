@@ -16,3 +16,9 @@ venv/
 
 # Smoke-test output on synthetic data
 results/synthetic/
+
+# LaTeX build files
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc

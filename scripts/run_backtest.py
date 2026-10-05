@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from intraday_momentum import CostConfig, StrategyConfig, build_day_data, load_minute_bars, run_backtest, summarize
-from intraday_momentum.data import load_daily_benchmark
+from intraday_momentum.data import load_daily_benchmark, load_dividends
 from intraday_momentum.plotting import (plot_cost_sensitivity, plot_equity_curves, plot_metric_bars,
                                         plot_noise_area_day)
 from intraday_momentum.synthetic import make_minute_bars
@@ -65,7 +65,9 @@ def main() -> None:
         out.mkdir(parents=True, exist_ok=True)
     else:
         bars = load_minute_bars(args.data)
-    data = build_day_data(bars)
+    div_path = ROOT / "data" / "SPY_dividends.csv"
+    dividends = load_dividends(div_path) if div_path.exists() and not args.synthetic else None
+    data = build_day_data(bars, dividends=dividends)
     print(f"Loaded {len(data)} trading days: {data.dates[0].date()} -> {data.dates[-1].date()}")
 
     bench_path = Path(args.benchmark)

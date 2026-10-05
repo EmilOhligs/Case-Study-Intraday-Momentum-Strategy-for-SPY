@@ -6,6 +6,7 @@ Usage (from the repo root, with keys in .env):
 Output:
     data/raw/SPY_1min_<year>.parquet   raw (unadjusted) minute bars, all sessions, UTC timestamps
     data/SPY_daily_adj.parquet         daily bars adjusted for splits + dividends (buy & hold benchmark)
+    data/SPY_dividends.csv             cash dividends per share by ex-date (derived from raw vs adjusted closes)
 
 Notes:
 - The free Alpaca plan gives historical SIP data (consolidated tape) from 2016 onwards,
@@ -89,7 +90,18 @@ def main() -> None:
     print("Downloading daily adjusted bars (benchmark) ...")
     daily = fetch_bars(args.symbol, "1Day", start.isoformat(), end.isoformat(), "all", args.feed)
     daily.to_parquet(DATA_DIR / f"{args.symbol}_daily_adj.parquet")
-    print(f"  saved {len(daily):,} daily bars. Done.")
+    print(f"  saved {len(daily):,} daily bars.")
+
+    # Dividends: with f_t = adj_close_t / raw_close_t, on an ex-date t the previous raw close
+    # expressed in today's terms is raw_{t-1} * f_{t-1} / f_t = raw_{t-1} - D_t.
+    raw = fetch_bars(args.symbol, "1Day", start.isoformat(), end.isoformat(), "split", args.feed)
+    f = (daily["close"] / raw["close"]).dropna()
+    prev_raw = raw["close"].shift(1).reindex(f.index)
+    div = (prev_raw * (1 - f.shift(1) / f)).round(4)
+    div = div[div > 0.01].rename("dividend")
+    div.index = div.index.tz_convert("America/New_York").normalize().tz_localize(None)
+    div.to_csv(DATA_DIR / f"{args.symbol}_dividends.csv")
+    print(f"  found {len(div)} dividends -> data/{args.symbol}_dividends.csv. Done.")
 
 
 if __name__ == "__main__":

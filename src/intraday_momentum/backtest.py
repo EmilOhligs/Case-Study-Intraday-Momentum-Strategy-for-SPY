@@ -2,7 +2,7 @@
 
 Accounting per day t:
     shares_t  = floor(AUM_{t-1} * leverage_t / Open_t)         (fixed for the whole day)
-    PnL_t     = sum over trades of side * shares * (exit - entry) - cost_per_share * shares_traded
+    PnL_t     = sum over trades of side * shares * (exit - entry) - n_orders * order_cost(shares)
     AUM_t     = AUM_{t-1} + PnL_t
 """
 from __future__ import annotations
@@ -85,7 +85,6 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
         in_range &= data.dates <= pd.Timestamp(end)
 
     decision_cols = np.arange(cfg.first_decision_min - 1, 390, cfg.decision_every_min)
-    cps = costs.per_share
     aum = initial_capital
     daily_rows, trades = [], []
 
@@ -98,13 +97,13 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
         shares = int(np.floor(aum * lev / data.day_open[i])) if tradable else 0
 
         pos, entry_px, entry_col = 0, np.nan, -1
-        gross, shares_traded, n_round_trips = 0.0, 0, 0
+        gross, n_orders, n_round_trips = 0.0, 0, 0
 
         def close_position(exit_px: float, exit_col: int) -> None:
-            nonlocal gross, shares_traded, n_round_trips
+            nonlocal gross, n_orders, n_round_trips
             pnl = pos * shares * (exit_px - entry_px)
             gross += pnl
-            shares_traded += shares
+            n_orders += 1
             n_round_trips += 1
             trades.append({"date": date, "side": pos, "entry_col": entry_col, "exit_col": exit_col,
                            "entry_px": entry_px, "exit_px": exit_px, "shares": shares, "gross_pnl": pnl})
@@ -122,13 +121,13 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
                     close_position(exec_px, j)
                 if new_pos != 0:
                     entry_px, entry_col = exec_px, j
-                    shares_traded += shares
+                    n_orders += 1
                 pos = new_pos
             if pos != 0:                                  # flat at the close
                 close_position(data.close[i, last], last)
                 pos = 0
 
-        cost = shares_traded * cps
+        cost = n_orders * costs.order_cost(shares) if n_orders else 0.0
         pnl = gross - cost
         ret = pnl / aum
         aum += pnl

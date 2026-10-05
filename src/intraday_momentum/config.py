@@ -32,7 +32,12 @@ class CostConfig:
 
     commission_per_share: float = 0.0035   # Interactive Brokers entry-level tier (paper)
     slippage_per_share: float = 0.001      # paper's own live estimate; half-spread of SPY is ~0.005
+    min_commission_per_order: float = 0.35 # IBKR minimum per order (as in the authors' reference code)
 
     @property
     def per_share(self) -> float:
         return self.commission_per_share + self.slippage_per_share
+
+    def order_cost(self, shares: int) -> float:
+        """Cost of one order of `shares` shares: max(minimum, commission) + slippage."""
+        return max(self.min_commission_per_order, self.commission_per_share * shares) + self.slippage_per_share * shares

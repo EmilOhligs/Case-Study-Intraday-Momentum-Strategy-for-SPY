@@ -32,3 +32,13 @@ def test_vwap_matches_manual_computation():
     tp = (d0["high"] + d0["low"] + d0["close"]) / 3
     manual = (tp * d0["volume"]).cumsum() / d0["volume"].cumsum()
     assert np.allclose(data.vwap[0], manual.values)
+
+
+def test_dividend_is_subtracted_from_previous_close_on_ex_date():
+    import pandas as pd
+    bars = make_minute_bars(n_days=5, seed=8)
+    plain = build_day_data(bars)
+    ex_date = plain.dates[3]
+    adj = build_day_data(bars, dividends=pd.Series({ex_date: 1.5}))
+    assert np.isclose(adj.prev_close[3], plain.prev_close[3] - 1.5)
+    assert np.allclose(adj.prev_close[[1, 2, 4]], plain.prev_close[[1, 2, 4]])

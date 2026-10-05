@@ -66,8 +66,12 @@ def _regular_session(bars: pd.DataFrame) -> pd.DataFrame:
     return rth
 
 
-def build_day_data(bars: pd.DataFrame, min_bars: int = 180) -> DayData:
+def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series | None = None) -> DayData:
     """Pivot regular-session minute bars into day x minute matrices.
+
+    `dividends` (cash amount indexed by ex-date) is subtracted from the previous close on the ex-date,
+    so the mechanical price drop on ex-dividend days is not mistaken for an overnight gap
+    (same treatment as the authors' reference code).
 
     Missing minutes inside a session are forward-filled (no trade in that minute = price unchanged);
     minutes after an early close stay NaN. Days with fewer than `min_bars` bars are dropped.
@@ -106,8 +110,16 @@ def build_day_data(bars: pd.DataFrame, min_bars: int = 180) -> DayData:
     sel = keep
     day_close, day_open, n_bars = day_close[sel], day_open[sel], n_bars[sel]
     prev_close = np.concatenate([[np.nan], day_close[:-1]])
+    if dividends is not None:
+        prev_close = prev_close - dividends.reindex(dates[sel]).fillna(0.0).values
     return DayData(dates=dates[sel], day_open=day_open, prev_close=prev_close, day_close=day_close,
                    n_bars=n_bars, close=close[sel], nxt_open=nxt_open[sel], vwap=vwap[sel])
+
+
+def load_dividends(path: str | Path) -> pd.Series:
+    """Cash dividends per share indexed by ex-date (written by scripts/download_data.py)."""
+    div = pd.read_csv(path, index_col=0, parse_dates=True)
+    return div["dividend"]
 
 
 def load_daily_benchmark(path: str | Path) -> pd.Series:

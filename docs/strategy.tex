@@ -1,0 +1,313 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\newtheorem*{remark}{Remark}
+\newtheorem*{prop}{Proposition}
+\newcommand{\UB}{\mathrm{UB}}
+\newcommand{\LB}{\mathrm{LB}}
+\newcommand{\VWAP}{\mathrm{VWAP}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\1}{\mathbf{1}}
+
+\title{Intraday Momentum on SPY\\[2pt]\large A Mathematical Description of the Strategy and its Evaluation}
+\author{Emil Ohligs}
+\date{Based on Zarattini, Aziz \& Barbon (2024), \emph{Beat the Market}}
+
+\begin{document}
+\maketitle
+
+\noindent This note states every step of the strategy as a formula, in the same order as the code in
+\texttt{src/intraday\_momentum/}. Each section names the module that implements it.
+
+\tableofcontents
+
+%=======================================================================
+\section{Notation and information structure}
+%=======================================================================
+
+\paragraph{Days and minutes.}
+Trading days are indexed by $t = 1,\dots,T$. The regular session (09:30--16:00 ET) is divided into
+$N = 390$ one-minute bars, indexed by $j = 0,\dots,N-1$. Bar $j$ covers the interval
+$[\,09{:}30 + j,\; 09{:}30 + j + 1)$. On half days the session ends after $N_t < N$ bars;
+in general $N_t \le N$ is the number of bars on day $t$ (\texttt{data.py}).
+
+\paragraph{Prices.} For each day and bar we observe open, high, low, close and volume
+$(O_{t,j}, H_{t,j}, L_{t,j}, C_{t,j}, V_{t,j})$. We write
+\[
+  P_{t,k} := C_{t,k-1}, \qquad k = 1,\dots,N_t,
+\]
+for the price observed at minute $k$ after the open (the close of the bar that ends at $09{:}30+k$).
+The day's open and close are
+\[
+  O_t := O_{t,0}, \qquad C_t := P_{t,N_t}.
+\]
+
+\paragraph{Filtration.} Let $\mathcal F_{t,k}$ be the information available at minute $k$ of day $t$:
+all bars of days $1,\dots,t-1$ and bars $0,\dots,k-1$ of day $t$.
+A backtest is free of look-ahead bias if and only if every decision taken at $(t,k)$ is
+$\mathcal F_{t,k}$-measurable and executed at a price that is realised \emph{after} $(t,k)$.
+Every quantity below is marked with the information set it depends on.
+
+%=======================================================================
+\section{The Noise Area (\texttt{signals.py})}
+%=======================================================================
+
+\subsection{Average move from the open}
+On every past day $t-i$ we measure the absolute relative move from the open after $k$ minutes:
+\begin{equation}
+  m_{t-i,k} = \left| \frac{P_{t-i,k}}{O_{t-i}} - 1 \right| .
+\end{equation}
+The \emph{expected size of a normal move} at minute $k$ is estimated by the mean over the
+previous $n = 14$ days (the lookback):
+\begin{equation}\label{eq:sigma}
+  \sigma_{t,k} = \frac{1}{n}\sum_{i=1}^{n} m_{t-i,k} .
+\end{equation}
+Since the sum starts at $i=1$, $\sigma_{t,k}$ only uses days before $t$, so it is $\mathcal F_{t,0}$-measurable.
+In the code this is a rolling mean over days followed by a shift of one day.
+
+\begin{remark}[Why the band widens like $\sqrt{k}$]
+$\sigma_{t,k}$ is a mean \emph{absolute} move, not a standard deviation. Suppose one-minute log returns
+are i.i.d.\ $\mathcal N(0,s^2)$. Then $\ln(P_{t,k}/O_t) \sim \mathcal N(0, k s^2)$, and for small moves
+\[
+  \E[m_{t,k}] \approx \E\,|Z|\, s\sqrt{k} = \sqrt{\tfrac{2}{\pi}}\; s\sqrt{k}, \qquad Z\sim\mathcal N(0,1).
+\]
+So the threshold for a ``significant'' move grows like $\sqrt{k}$. This gives the concave, funnel-shaped
+Noise Area in Figure~1 of the paper. A fixed threshold would be too loose in the morning and too tight
+in the afternoon.
+\end{remark}
+
+\subsection{Boundaries with gap adjustment}
+Let $C_{t-1}$ be the previous close and $D_t$ the cash dividend if $t$ is an ex-dividend date
+($D_t = 0$ otherwise). The dividend-adjusted previous close is $\tilde C_{t-1} = C_{t-1} - D_t$.
+With the volatility multiplier $\mathrm{VM}$ (paper: $\mathrm{VM}=1$) the boundaries are
+\begin{align}
+  \UB_{t,k} &= \max\!\big(O_t,\, \tilde C_{t-1}\big)\,\big(1 + \mathrm{VM}\,\sigma_{t,k}\big), \label{eq:ub}\\
+  \LB_{t,k} &= \min\!\big(O_t,\, \tilde C_{t-1}\big)\,\big(1 - \mathrm{VM}\,\sigma_{t,k}\big). \label{eq:lb}
+\end{align}
+The Noise Area is the interval $\mathcal N_{t,k} = [\LB_{t,k}, \UB_{t,k}]$.
+
+\begin{remark}[Gap adjustment]
+After a gap down ($O_t < \tilde C_{t-1}$) the upper band is anchored at yesterday's close. A long signal
+then requires the price to close the whole gap \emph{and} move an extra $\sigma_{t,k}$. The lower band
+stays anchored at the open, so continuation of the gap is detected quickly. Gap ups work the same way
+in the other direction. Without the dividend correction, the mechanical price drop on ex-dates would look
+like a gap down.
+\end{remark}
+
+\subsection{Session VWAP}
+With the typical price $\bar p_{t,j} = (H_{t,j}+L_{t,j}+C_{t,j})/3$,
+\begin{equation}
+  \VWAP_{t,k} = \frac{\sum_{j=0}^{k-1} \bar p_{t,j}\,V_{t,j}}{\sum_{j=0}^{k-1} V_{t,j}},
+\end{equation}
+which uses bars up to minute $k$ only, so it is $\mathcal F_{t,k}$-measurable.
+
+%=======================================================================
+\section{Signal and position (\texttt{backtest.py})}
+%=======================================================================
+
+\subsection{Decision times}
+Positions can only change at the decision times
+\[
+  \mathcal K_t = \{\,30,\,60,\,\dots\,\} \cap \{1,\dots,N_t-1\},
+\]
+i.e.\ 10:00, 10:30, \dots, 15:30 on a full day. Let $x_{t,k} \in \{-1, 0, +1\}$ be the position
+(short, flat, long) held after the decision at minute $k$. Each day starts flat, $x_{t,0} = 0$, and
+between decisions the position is unchanged.
+
+\subsection{Base model: stop at the opposite band}
+At $k\in\mathcal K_t$, with $x^- = $ the current position:
+\begin{equation}\label{eq:base}
+  x_{t,k} =
+  \begin{cases}
+    +1 & \text{if } P_{t,k} > \UB_{t,k},\\
+    -1 & \text{if } P_{t,k} < \LB_{t,k},\\
+    x^- & \text{otherwise.}
+  \end{cases}
+\end{equation}
+This rule has \emph{memory}: inside the Noise Area the previous position is kept. A long is only closed
+(and immediately reversed) when the price crosses the \emph{lower} band.
+
+\subsection{Extension 1: trailing stop at the current band and VWAP}
+\begin{equation}\label{eq:vwap}
+  x_{t,k} =
+  \begin{cases}
+    +1 & \text{if } P_{t,k} > \max(\UB_{t,k}, \VWAP_{t,k}),\\
+    -1 & \text{if } P_{t,k} < \min(\LB_{t,k}, \VWAP_{t,k}),\\
+    0  & \text{otherwise.}
+  \end{cases}
+\end{equation}
+This rule is \emph{memoryless}. As soon as a long falls back below the upper band or below VWAP, it is
+closed. This is exactly a trailing stop at $\max(\UB_{t,k},\VWAP_{t,k})$.
+
+\subsection{Execution}
+A decision at $(t,k)$ is executed at the open of the next bar,
+\[
+  \hat P_{t,k} = O_{t,k} \quad(\text{realised after } \mathcal F_{t,k}),
+\]
+and every open position is closed at the day's close $C_t$. In particular $x_{t,N_t} = 0$:
+no overnight exposure.
+
+%=======================================================================
+\section{Position sizing}
+%=======================================================================
+
+The number of shares is fixed at the open of each day:
+\begin{equation}\label{eq:shares}
+  q_t = \left\lfloor \frac{A_{t-1}\, L_t}{O_t} \right\rfloor ,
+\end{equation}
+where $A_{t-1}$ is the equity at the end of day $t-1$ and $L_t$ is the leverage.
+
+\paragraph{Full exposure (base, Extension 1).} $L_t = 1$.
+
+\paragraph{Volatility targeting (Extension 2).} Let $r_s = C_s / C_{s-1} - 1$ be daily close-to-close returns and
+\begin{equation}
+  \hat\sigma_t = \sqrt{\frac{1}{n-1}\sum_{i=1}^{n}\big(r_{t-i} - \bar r_t\big)^2}, \qquad
+  \bar r_t = \frac1n\sum_{i=1}^n r_{t-i},
+\end{equation}
+the realised daily volatility over the previous $n=14$ days ($\mathcal F_{t,0}$-measurable). Then
+\begin{equation}\label{eq:lev}
+  L_t = \min\!\left(L_{\max},\; \frac{\sigma^\star}{\hat\sigma_t}\right),
+  \qquad \sigma^\star = 2\%,\quad L_{\max} = 4 .
+\end{equation}
+Exposure is reduced when the market is volatile and increased when it is calm. Since SPY's daily volatility
+is typically around $1\%$, the typical leverage is about $2$.
+
+%=======================================================================
+\section{Profit and loss with transaction costs}
+%=======================================================================
+
+Let the day's round trips be $\ell = 1,\dots,R_t$, each with side $s_\ell\in\{\pm1\}$,
+entry price $e_\ell$ and exit price $z_\ell$. Every entry, exit or reversal leg is one order of $q_t$
+shares. Let $M_t$ be the number of orders. A reversal from $+1$ to $-1$ counts as two orders.
+
+\paragraph{Gross and net P\&L.}
+\begin{equation}
+  \Pi^{\text{gross}}_t = \sum_{\ell=1}^{R_t} s_\ell\, q_t\,(z_\ell - e_\ell),
+  \qquad
+  \Pi_t = \Pi^{\text{gross}}_t - M_t\,\kappa(q_t),
+\end{equation}
+with the cost of one order
+\begin{equation}
+  \kappa(q) = \max\big(c_{\min},\; c\,q\big) + \delta\, q ,
+\end{equation}
+where $c = \$0.0035$ is the commission per share, $c_{\min} = \$0.35$ the minimum commission per order and
+$\delta$ the slippage per share ($\$0.001$ in the paper scenario, $\$0.005$ in the conservative one).
+
+\paragraph{Equity and returns.}
+\begin{equation}
+  A_t = A_{t-1} + \Pi_t, \qquad R^{\text{strat}}_t = \frac{\Pi_t}{A_{t-1}}, \qquad A_0 = \$100{,}000 .
+\end{equation}
+
+\begin{prop}[Break-even cost]
+Let $\bar\pi$ be the average gross profit per share per round trip. Each round trip has two orders.
+For large $q$ (where the minimum commission does not bind), the strategy is profitable on average iff
+\[
+  \bar\pi > 2\,(c + \delta) .
+\]
+\end{prop}
+\begin{proof}
+A round trip earns $q\,\bar\pi$ on average and costs $2\kappa(q) = 2q(c+\delta)$ when $cq\ge c_{\min}$.
+\end{proof}
+\noindent The paper reports $\bar\pi \approx \$0.09$, so the edge vanishes at roughly
+$c+\delta \approx \$0.045$ per share and side. This is the reason the cost assumptions matter so much
+for an intraday strategy.
+
+%=======================================================================
+\section{Performance metrics (\texttt{metrics.py})}
+%=======================================================================
+
+Let $R_1,\dots,R_T$ be daily returns, with $\bar R$ their mean and $s_R$ their sample standard deviation.
+We use $252$ trading days per year.
+
+\begin{align}
+  \text{Total return} &= \prod_{t=1}^T (1+R_t) - 1, \\
+  \text{Annualised return (CAGR)} &= \Big(\prod_{t=1}^T (1+R_t)\Big)^{252/T} - 1, \\
+  \text{Annualised volatility} &= s_R \sqrt{252}, \\
+  \text{Sharpe ratio} &= \frac{\bar R - r_f/252}{s_R}\,\sqrt{252} \quad (r_f = 0 \text{ in our tables}), \\
+  \text{Max drawdown} &= \max_{t}\left(1 - \frac{E_t}{\max_{u\le t} E_u}\right), \qquad E_t = \prod_{u\le t}(1+R_u), \\
+  \text{Hit ratio} &= \frac{\#\{t : R_t > 0\}}{\#\{t : R_t \neq 0\}} .
+\end{align}
+
+\begin{remark}[Why $\sqrt{252}$]
+If daily returns are independent with variance $s^2$, the variance of a sum over 252 days is $252\,s^2$.
+The standard deviation therefore scales with $\sqrt{252}$, while the mean scales with $252$. Hence the
+Sharpe ratio scales with $252/\sqrt{252} = \sqrt{252}$.
+\end{remark}
+
+\begin{prop}[Leverage does not change the Sharpe ratio]
+For $r_f = 0$ and any constant $\lambda>0$: $\mathrm{SR}(\lambda R) = \mathrm{SR}(R)$.
+\end{prop}
+\begin{proof}
+$\overline{\lambda R} = \lambda \bar R$ and $s_{\lambda R} = \lambda s_R$, so the ratio is unchanged.
+\end{proof}
+\noindent Therefore strategies should be compared by their Sharpe ratio and not by total return.
+Volatility targeting changes $L_t$ over time, so it \emph{can} change the Sharpe ratio. Most of the
+increase in total return from Extension 2, however, comes from the average leverage.
+
+\paragraph{Alpha and beta.} OLS regression of strategy returns on SPY returns,
+\begin{equation}
+  R^{\text{strat}}_t = \alpha + \beta\, R^{\text{SPY}}_t + \varepsilon_t,
+  \qquad
+  \hat{\bm\theta} = (X^\top X)^{-1} X^\top y,
+\end{equation}
+with $X = [\bm 1, R^{\text{SPY}}]$. Standard errors are
+$\widehat{\mathrm{se}}(\hat\theta_i) = \sqrt{\hat s^2_\varepsilon\,[(X^\top X)^{-1}]_{ii}}$ with
+$\hat s^2_\varepsilon = \hat\varepsilon^\top\hat\varepsilon/(T-2)$, and $t_i = \hat\theta_i/\widehat{\mathrm{se}}(\hat\theta_i)$.
+We report the annualised alpha $252\,\hat\alpha$.
+
+\paragraph{Statistical significance of the Sharpe ratio.}
+The $t$-statistic of the mean daily return is $t = \bar R/(s_R/\sqrt T) = \mathrm{SR}_{\text{daily}}\sqrt{T}$.
+With $T = 252\,Y$ days ($Y$ years) this gives
+\begin{equation}
+  t \approx \mathrm{SR}_{\text{ann}}\,\sqrt{Y}.
+\end{equation}
+For example, a Sharpe ratio of $1$ over $4$ test years gives $t\approx2$, which is only borderline significant.
+
+%=======================================================================
+\section{Evaluation protocol}
+%=======================================================================
+
+\begin{itemize}
+  \item \textbf{Split.} The sample is divided chronologically into a training period $\mathcal T_{\text{train}}$
+        (2016--2021) and a test period $\mathcal T_{\text{test}}$ (2022--today). Each period is simulated
+        separately with $A_0 = \$100{,}000$.
+  \item \textbf{No fitting on the test set.} All variants use the paper's parameters
+        $(n, \mathrm{VM}, \sigma^\star, L_{\max}) = (14, 1, 2\%, 4)$. The grid
+        $n\in\{7,14,30,60\}$, $\mathrm{VM}\in\{0.8,1.0,1.2,1.5\}$ is evaluated on $\mathcal T_{\text{train}}$ only,
+        as a robustness check. A good result is a flat plateau of Sharpe ratios rather than one sharp peak.
+  \item \textbf{No look-ahead.} $\sigma_{t,k}$, $\hat\sigma_t$, $\tilde C_{t-1}$ and $L_t$ are
+        $\mathcal F_{t,0}$-measurable. $P_{t,k}$ and $\VWAP_{t,k}$ are $\mathcal F_{t,k}$-measurable.
+        Execution happens at $O_{t,k}$, which lies after $\mathcal F_{t,k}$. These properties are checked by
+        unit tests (\texttt{tests/test\_signals.py}).
+  \item \textbf{Costs.} Two scenarios ($\delta = 0.001$ and $\delta = 0.005$), plus a sweep over
+        $c+\delta \in [0.0035, 0.0235]$ in the test period.
+\end{itemize}
+
+%=======================================================================
+\section{Summary of parameters}
+%=======================================================================
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Symbol & Meaning & Value \\
+\midrule
+$n$ & lookback for $\sigma_{t,k}$ and $\hat\sigma_t$ & 14 days \\
+$\mathrm{VM}$ & volatility multiplier & 1 \\
+$\mathcal K_t$ & decision times & every 30 min from 10:00 \\
+$\sigma^\star$ & daily volatility target & 2\% \\
+$L_{\max}$ & leverage cap & 4 \\
+$c$ & commission per share & \$0.0035 \\
+$c_{\min}$ & minimum commission per order & \$0.35 \\
+$\delta$ & slippage per share & \$0.001 / \$0.005 \\
+$A_0$ & initial capital & \$100{,}000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

@@ -20,6 +20,11 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 - **Costs:** $0.0035/share commission (IBKR) plus slippage. *Paper* scenario: $0.001/share. *Conservative* scenario: $0.005/share (≈ half the SPY bid-ask spread). Plus a full cost-sensitivity curve.
 - **Metrics:** annualized return (CAGR), annualized volatility (σ·√252), Sharpe ratio (r_f = 0), max drawdown, hit ratio, skewness, alpha/beta vs SPY.
 
+## Documentation
+
+- [`docs/strategy.pdf`](docs/strategy.pdf): the full strategy and evaluation in mathematical notation (LaTeX source: `docs/strategy.tex`)
+- [`docs/report.md`](docs/report.md): case study report covering data, implementation decisions, **cross-check with the authors' reference code**, validation, results and limitations
+
 ## Repository structure
 
 ```
