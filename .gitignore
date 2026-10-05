@@ -1,0 +1,18 @@
+# Data & secrets (never commit)
+data/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Smoke-test output on synthetic data
+results/synthetic/
