@@ -1,7 +1,7 @@
 # Case Study Report – Intraday Momentum Strategy for SPY
 
 *WUTIS Algorithmic Trading Superday · Emil Ohligs*
-*Mathematical specification: [`strategy.pdf`](strategy.pdf) · Code: [`src/intraday_momentum/`](../src/intraday_momentum)*
+*Mathematical specification: [`strategy.md`](strategy.md) · Code: [`src/intraday_momentum/`](../src/intraday_momentum)*
 
 > **Status:** implementation and tests complete. Results sections are filled in after the run on real data (marked *TBD*).
 
@@ -11,7 +11,7 @@
 
 | Task (case study) | Where it is covered |
 |---|---|
-| 1. Understand the paper: hypothesis, signal, execution, risk controls, regimes | [`strategy.pdf`](strategy.pdf), §2–3 below |
+| 1. Understand the paper: hypothesis, signal, execution, risk controls, regimes | [`strategy.md`](strategy.md), §2–3 below |
 | 2. Implement & backtest (base + one extension), train/test split, realistic costs, Sharpe / return / volatility | `backtest.py`, `scripts/run_backtest.py`, §6–7 |
 | 3. Own strategy variation, same split / costs / metrics | §8 (*TBD*) |
 
@@ -155,4 +155,4 @@ Design, hypothesis, expected edge, comparison with the baseline on the same spli
 | Date | Change |
 |---|---|
 | 2026-10-04 | Initial implementation: data pipeline, Noise Area, base + 2 extensions, metrics, tests, CI |
-| 2026-10-05 | Cross-check with the authors' reference code → added dividend adjustment and minimum commission (+2 tests). Added mathematical specification (`docs/strategy.pdf`). |
+| 2026-10-05 | Cross-check with the authors' reference code → added dividend adjustment and minimum commission (+2 tests). Added mathematical specification (`docs/strategy.md`). |

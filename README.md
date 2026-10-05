@@ -22,7 +22,7 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 
 ## Documentation
 
-- [`docs/strategy.pdf`](docs/strategy.pdf): the full strategy and evaluation in mathematical notation (LaTeX source: `docs/strategy.tex`)
+- [`docs/strategy.md`](docs/strategy.md): the full strategy and evaluation in mathematical notation
 - [`docs/report.md`](docs/report.md): case study report covering data, implementation decisions, **cross-check with the authors' reference code**, validation, results and limitations
 
 ## Repository structure
