@@ -13,7 +13,7 @@
 |---|---|
 | 1. Understand the paper: hypothesis, signal, execution, risk controls, regimes | [`strategy.md`](strategy.md), §2–3 below |
 | 2. Implement & backtest (base + one extension), train/test split, realistic costs, Sharpe / return / volatility | `backtest.py`, `scripts/run_backtest.py`, §6–7 |
-| 3. Own strategy variation, same split / costs / metrics | §8 (*TBD*) |
+| 3. Own strategy variation, same split / costs / metrics | [`extensions.md`](extensions.md), §8 (*TBD*) |
 
 ---
 
@@ -136,7 +136,7 @@ CI: GitHub Actions runs the full suite on every push (`.github/workflows/tests.y
 
 ## 8. Own strategy *(TBD)*
 
-Design, hypothesis, expected edge, comparison with the baseline on the same split, costs and metrics.
+Design, pre-registered hypotheses and evaluation plan: see [`extensions.md`](extensions.md) (transient-spike filter + ML meta-labeling). Results follow here.
 
 ---
 
@@ -156,3 +156,4 @@ Design, hypothesis, expected edge, comparison with the baseline on the same spli
 |---|---|
 | 2026-10-04 | Initial implementation: data pipeline, Noise Area, base + 2 extensions, metrics, tests, CI |
 | 2026-10-05 | Cross-check with the authors' reference code → added dividend adjustment and minimum commission (+2 tests). Added mathematical specification (`docs/strategy.md`). |
+| 2026-10-05 | Own-strategy design (`docs/extensions.md`): spike filter + ML meta-labeling, informed by paper §4 / FAQ (VM benchmark, RSI/VIX/NR/FOMC features, sizing instead of skipping). |
