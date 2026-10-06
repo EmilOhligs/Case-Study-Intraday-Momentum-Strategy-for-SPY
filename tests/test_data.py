@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from intraday_momentum.data import build_day_data
 from intraday_momentum.synthetic import make_minute_bars
@@ -21,7 +22,7 @@ def test_extended_hours_are_dropped():
     bars = make_minute_bars(n_days=3, seed=2)
     pre = bars.iloc[:5].copy()
     pre.index = pre.index - np.timedelta64(60, "m")          # 08:30 - 08:34, pre-market
-    data = build_day_data(bars._append(pre).sort_index())
+    data = build_day_data(pd.concat([bars, pre]).sort_index())
     assert np.isclose(data.day_open[0], bars["open"].iloc[0])
 
 

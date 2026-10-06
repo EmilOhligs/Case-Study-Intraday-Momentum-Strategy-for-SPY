@@ -104,7 +104,7 @@ def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series
     keep = (close_raw.notna().sum(axis=1).values >= min_bars)
 
     after_close = cols[None, :] >= n_bars[:, None]
-    close = close_raw.ffill(axis=1).values
+    close = close_raw.ffill(axis=1).to_numpy(copy=True)   # writable copy (pandas >= 3 returns read-only views)
     close[after_close] = np.nan
 
     opens = pivot("open").values
@@ -119,7 +119,7 @@ def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series
     cum_vol = np.cumsum(vol, axis=1)
     with np.errstate(invalid="ignore", divide="ignore"):
         vwap = np.cumsum(typical * vol, axis=1) / cum_vol
-    vwap = pd.DataFrame(np.where(cum_vol > 0, vwap, np.nan)).ffill(axis=1).values
+    vwap = pd.DataFrame(np.where(cum_vol > 0, vwap, np.nan)).ffill(axis=1).to_numpy(copy=True)
     vwap[after_close] = np.nan
 
     day_close = close[np.arange(len(close)), n_bars - 1]

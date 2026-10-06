@@ -140,9 +140,12 @@ def subperiod_table(returns: dict[str, pd.Series], subperiods: dict[str, tuple],
     rows = []
     for pname, (s, e) in subperiods.items():
         for name, r in returns.items():
-            st = summarize(r.loc[s:e].dropna())
+            x = r.loc[s:e].dropna()
+            if len(x) < 2:            # sub-period outside the data (e.g. synthetic sample)
+                continue
+            st = summarize(x)
             rows.append({"period": pname, "strategy": name, **{c: st[c] for c in columns}})
-        if bench is not None:
+        if bench is not None and len(bench.loc[s:e].dropna()) >= 2:
             st = summarize(bench.loc[s:e].fillna(0))
             rows.append({"period": pname, "strategy": "SPY buy & hold", **{c: st[c] for c in columns}})
     return pd.DataFrame(rows).set_index(["period", "strategy"])

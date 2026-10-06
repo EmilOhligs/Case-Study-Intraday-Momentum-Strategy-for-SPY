@@ -31,12 +31,11 @@ def main() -> None:
 
     data, bench = load_project_data(ROOT, synthetic=args.synthetic)
     split = "2022-06-01" if args.synthetic else args.split
-    val_years = (2021,) if args.synthetic else (2018, 2019, 2020, 2021)
     out = ROOT / "results" / ("synthetic" if args.synthetic else "")
     out.mkdir(parents=True, exist_ok=True)
     periods = make_periods(data, split)
 
-    run = ml_pipeline(data, periods, COST_SCENARIOS, bench, val_years=val_years)
+    run = ml_pipeline(data, periods, COST_SCENARIOS, bench)   # CV years: 2018-2021 on real data
     paper_summary, paper_full = evaluate(data, {k: PAPER_VARIANTS[k] for k in ["Ext. 1: + band/VWAP stop",
                                                                                  "Ext. 2: + vol targeting"]},
                                          COST_SCENARIOS, periods, bench)

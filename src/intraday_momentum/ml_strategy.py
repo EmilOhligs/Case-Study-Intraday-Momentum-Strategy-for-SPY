@@ -74,31 +74,41 @@ def backtest_ml(data: DayData, model: Pipeline, feats: pd.DataFrame, cfg: MLConf
     return run_backtest(data, strat, costs, start=start, end=end, target_positions=positions_matrix(data, pos))
 
 
-def cv_splits(feats: pd.DataFrame, train_start, val_years: list[int]):
-    """Expanding window by calendar year: train on [train_start, Y-1], validate on year Y."""
+def cv_splits(feats: pd.DataFrame, train_start, val_years: list[int], train_end=None):
+    """Expanding window by calendar year: train on [train_start, Y-1], validate on year Y (never after train_end)."""
     dates = feats.index.get_level_values("date")
+    last = pd.Timestamp(train_end) if train_end is not None else dates.max()
     for year in val_years:
         train = feats[(dates >= pd.Timestamp(train_start)) & (dates < pd.Timestamp(f"{year}-01-01"))]
-        val = feats[(dates >= pd.Timestamp(f"{year}-01-01")) & (dates <= pd.Timestamp(f"{year}-12-31"))]
+        val = feats[(dates >= pd.Timestamp(f"{year}-01-01")) & (dates <= min(pd.Timestamp(f"{year}-12-31"), last))]
         yield year, train, val
+
+
+def default_val_years(feats: pd.DataFrame, train_start, train_end) -> list[int]:
+    """All calendar years of the training period except the first two (which are only used for fitting)."""
+    dates = feats.index.get_level_values("date")
+    years = sorted(set(dates[(dates >= pd.Timestamp(train_start)) & (dates <= pd.Timestamp(train_end))].year))
+    return years[2:] or years[1:]
 
 
 def expanding_window_cv(data: DayData, feats: pd.DataFrame, train_start, val_years: list[int],
                         C_grid=(0.01, 0.1, 1.0), margin_grid=(0.0, 0.01, 0.02, 0.04),
-                        costs: CostConfig = CostConfig(), features: tuple[str, ...] = tuple(FEATURES)) -> pd.DataFrame:
+                        costs: CostConfig = CostConfig(), features: tuple[str, ...] = tuple(FEATURES),
+                        train_end=None) -> pd.DataFrame:
     """For each validation year Y: fit on [train_start, Y-1], evaluate on Y. Never touches the test period.
 
     Returns one row per (C, margin, year) with Sharpe after costs, AUC and trading activity.
     """
     rows = []
-    for year, tr, va in cv_splits(feats, train_start, val_years):
+    for year, tr, va in cv_splits(feats, train_start, val_years, train_end):
         for C in C_grid:
             cfg = MLConfig(C=C, features=features)
             model = fit(tr, cfg)
             auc = roc_auc_score(va["label"], predict_proba(model, va, cfg))
             for m in margin_grid:
                 cfg_m = MLConfig(C=C, margin=m, features=features)
-                res = backtest_ml(data, model, va, cfg_m, costs, f"{year}-01-01", f"{year}-12-31")
+                va_end = va.index.get_level_values("date").max()
+                res = backtest_ml(data, model, va, cfg_m, costs, f"{year}-01-01", va_end)
                 st = summarize(res.returns, trades=res.trades)
                 rows.append({"C": C, "margin": m, "year": year, "sharpe": st["sharpe"], "ann_return": st["ann_return"],
                              "auc": auc, "trades_per_day": st.get("trades_per_day", 0.0),
@@ -152,17 +162,19 @@ class MLRun:
 
 
 def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig], bench: pd.Series | None = None,
-                val_years: tuple[int, ...] = (2018, 2019, 2020, 2021)) -> MLRun:
+                val_years: tuple[int, ...] | None = None) -> MLRun:
     """End-to-end: features -> CV on the train period -> final fit on train -> evaluation on all periods."""
     train_start, train_end = periods["Train"]
     feats = build_features(data)
     dates = feats.index.get_level_values("date")
     cv_costs = costs["paper"]
+    val_years = list(val_years) if val_years is not None else default_val_years(feats, train_start, train_end)
 
     # 1) feature-set choice (A: own features, B: + the paper's discrete signal) - train period only
     comparison = {}
     for name, fs in {"A: 7 features": tuple(FEATURES), "B: A + paper signal": tuple(FEATURES_WITH_PAPER_SIGNAL)}.items():
-        cv_fs = expanding_window_cv(data, feats, train_start, list(val_years), costs=cv_costs, features=fs)
+        cv_fs = expanding_window_cv(data, feats, train_start, val_years, costs=cv_costs, features=fs,
+                                     train_end=train_end)
         _, tbl = select_params(cv_fs, fs)
         comparison[name] = tbl.iloc[0].rename(f"{name} (best C={tbl.index[0][0]}, margin={tbl.index[0][1]})")
         if name.startswith("A"):
@@ -170,8 +182,9 @@ def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig], benc
     comparison = pd.DataFrame(comparison.values())
     best_set = tuple(FEATURES) if comparison.iloc[0]["mean_sharpe"] >= comparison.iloc[1]["mean_sharpe"] \
         else tuple(FEATURES_WITH_PAPER_SIGNAL)
-    cv = cv_a if best_set == tuple(FEATURES) else expanding_window_cv(data, feats, train_start, list(val_years),
-                                                                      costs=cv_costs, features=best_set)
+    cv = cv_a if best_set == tuple(FEATURES) else expanding_window_cv(data, feats, train_start, val_years,
+                                                                      costs=cv_costs, features=best_set,
+                                                                      train_end=train_end)
     cfg, cv_table = select_params(cv, best_set)
 
     # 2) final fit on the whole train period, then one evaluation
