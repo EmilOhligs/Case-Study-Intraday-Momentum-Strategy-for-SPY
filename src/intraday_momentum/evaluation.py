@@ -132,3 +132,23 @@ def parameter_grid(data: DayData, base: StrategyConfig, costs: CostConfig, perio
     out = pd.DataFrame(grid, index=pd.Index(lookbacks, name="lookback_days"))
     out.columns.name = "vol_multiplier"
     return out
+
+
+def subperiod_table(returns: dict[str, pd.Series], subperiods: dict[str, tuple], bench: pd.Series | None = None,
+                    columns=("ann_return", "ann_vol", "sharpe", "max_drawdown", "sharpe_t")) -> pd.DataFrame:
+    """Metrics of several return series over named sub-periods (e.g. before / after the paper's publication)."""
+    rows = []
+    for pname, (s, e) in subperiods.items():
+        for name, r in returns.items():
+            st = summarize(r.loc[s:e].dropna())
+            rows.append({"period": pname, "strategy": name, **{c: st[c] for c in columns}})
+        if bench is not None:
+            st = summarize(bench.loc[s:e].fillna(0))
+            rows.append({"period": pname, "strategy": "SPY buy & hold", **{c: st[c] for c in columns}})
+    return pd.DataFrame(rows).set_index(["period", "strategy"])
+
+
+SUBPERIODS = {
+    "Test, before publication (2022-01 - 2024-04)": ("2022-01-01", "2024-04-30"),
+    "After publication (2024-05 - today)": ("2024-05-01", None),
+}

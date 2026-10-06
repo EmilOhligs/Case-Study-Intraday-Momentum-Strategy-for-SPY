@@ -3,7 +3,7 @@
 *WUTIS Algorithmic Trading Superday · Emil Ohligs*
 *Mathematical specification: [`strategy.md`](strategy.md) · Code: [`src/intraday_momentum/`](../src/intraday_momentum)*
 
-> **Status:** implementation and tests complete. Results sections are filled in after the run on real data (marked *TBD*).
+> **Status:** complete. Paper replication and own ML strategy evaluated on SPY 1-minute data 2016-01 – 2026-10.
 
 ---
 
@@ -11,9 +11,20 @@
 
 | Task (case study) | Where it is covered |
 |---|---|
-| 1. Understand the paper: hypothesis, signal, execution, risk controls, regimes | [`strategy.md`](strategy.md), §2–3 below |
+| 1. Understand the paper: hypothesis, signal, execution, risk controls, regimes | §1.1 below, [`strategy.md`](strategy.md) |
 | 2. Implement & backtest (base + one extension), train/test split, realistic costs, Sharpe / return / volatility | `backtest.py`, `scripts/run_backtest.py`, §6–7 |
-| 3. Own strategy variation, same split / costs / metrics | [`extensions.md`](extensions.md), §8 (*TBD*) |
+| 3. Own strategy variation, same split / costs / metrics | §8 below, details in [`extensions.md`](extensions.md) |
+
+### 1.1 The paper in brief
+
+| | |
+|---|---|
+| **Core hypothesis** | Intraday trends come from persistent supply/demand imbalances. If the move from the open is abnormally large for the time of day, it tends to continue (time-series momentum). |
+| **Signal** | Noise Area = average absolute move from the open at each minute over the last 14 days, anchored at max/min(open, previous close). Long above the upper band, short below the lower band. |
+| **Execution** | Decisions only at HH:00 / HH:30 from 10:00, flat at the close, \$0.0035/share commission + \$0.001 slippage. |
+| **Risk controls** | (1) Trailing stop at max(UB, VWAP) / min(LB, VWAP). (2) Volatility targeting: 2% daily, leverage ≤ 4. (3) No overnight positions. |
+| **Why it may work** | Under-reaction to news (disposition effect, limited attention, slow-moving capital). Order flow of institutions executing over the day. Dealer delta-hedging when gamma is short amplifies moves. Positive skew from cut losers and held winners. |
+| **When it fails** | Quiet, range-bound markets (many false breakouts, e.g. 2016–17). Sharp V-shaped reversals (news; March 2020; April 2025). Long dealer gamma (damped trends). Costs above ~\$0.03/share. Crowding / alpha decay after publication. |
 
 ---
 
@@ -33,7 +44,8 @@
 
 - Only the regular session (09:30–16:00 ET) is kept. Pre-market and after-hours bars are dropped.
 - Missing minutes inside the session are forward-filled: no trade in that minute means the price is unchanged.
-- On half days (13:00 close) the minutes after the close stay empty, and the position is closed at the last bar.
+- On half days (13:00 close: Jul 3, day after Thanksgiving, Dec 24) the vendor's after-hours bars from 13:00 on are removed via an NYSE early-close calendar, and the position is closed at 13:00. A first version missed this, and the check on real data found it (22 half days now).
+- "Dividends" below \$0.05 are rounding noise from adjusted vs. raw prices and are ignored.
 - Days with fewer than 180 bars are dropped.
 
 ---
@@ -108,35 +120,89 @@ The authors publish a Python version of their backtest on [concretumgroup.com](h
 | `test_minimum_commission_applies_to_small_orders` | the $0.35 minimum is applied |
 | `test_vol_targeting_caps_leverage` | leverage ≤ 4 |
 | `test_sharpe_is_invariant_to_leverage`, `test_alpha_beta_recovers_known_coefficients`, … | the metrics are correct |
+| `test_nyse_early_closes`, `test_after_hours_bars_on_half_days_are_dropped` | half days end at 13:00 |
+| `test_false_breakout_is_detected`, … | the trade diagnostics are correct |
+| `test_features_have_no_look_ahead` (ML) | changing prices after a decision time leaves that row's features unchanged |
+| `test_cv_never_trains_on_validation_or_later_years` (ML) | the expanding-window CV has no leakage |
+| `test_target_positions_reproduce_hold_to_close` (ML) | ML positions run through the same engine with exact P&L |
 
 CI: GitHub Actions runs the full suite on every push (`.github/workflows/tests.yml`).
 
 ---
 
-## 7. Results – replication *(TBD after the data run)*
+## 7. Results – replication
 
-### 7.1 Paper reference values (2007-05 – 2024-04, paper costs)
+All numbers come from `scripts/run_backtest.py` / the notebook (`results/summary.md`). The test period is 2022-01-03 – 2026-10-02.
 
-| Variant | Total return | Ann. return | Ann. vol | Sharpe | MDD | Hit ratio |
+### 7.1 Replication check against the paper
+
+Yearly returns of the full model (Ext. 2) vs. the paper's monthly table (FAQ Q4/Q24):
+
+| Year | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 |
+|---|---|---|---|---|---|---|---|---|---|
+| This repo | −13.4% | −9.3% | 55.6% | 5.7% | 25.3% | 29.7% | 25.1% | 39.2% | 32.6% |
+| Paper | −12.8% | −6.9% | 61.1% | 6.9% | 26.8% | 34.8% | 24.4% | 37.2% | 32.2% |
+
+The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (22–25% vs. 25%), hit ratio (42–46% vs. 43%), positive skew and beta ≈ 0 also match. Our 0.86–0.92 round trips per day correspond to the paper's ~1.8 *orders* per day.
+
+### 7.2 Train vs. test
+
+| Strategy | Sharpe train | Sharpe test | Ann. return test | Ann. vol test | MDD test | Sharpe test (conservative costs) |
 |---|---|---|---|---|---|---|
-| Base (opposite band) | 178% | 6.2% | 10.9% | 0.61 | 21% | 54% |
-| + band/VWAP stop | 380% | 9.7% | 7.7% | 1.24 | 12% | 43% |
-| + vol targeting | 1,985% | 19.6% | 14.3% | 1.33 | 25% | 43% |
-| SPY buy & hold | 227% | 7.2% | 20.2% | 0.45 | 56% | 54% |
+| Base: opposite-band stop | 0.37 | 0.74 | 6.8% | 9.5% | 8.9% | 0.71 |
+| Ext. 1: + band/VWAP stop | 0.66 | 1.02 | 6.7% | 6.6% | 10.0% | 0.96 |
+| Ext. 2: + vol targeting | 0.93 | 1.10 | 15.8% | 14.2% | 22.3% | 1.04 |
+| SPY buy & hold | 1.05 | 0.75 | 12.2% | 17.3% | 24.5% | – |
 
-### 7.2 This replication – train vs. test
+- The paper's ranking (base < VWAP stop < vol targeting) holds in both periods.
+- Vol targeting adds return mainly through leverage: on average 2.7x, and capped at 4x on 22% of days. Its Sharpe gain is small.
+- Alpha t-statistics for Ext. 2 are 2.7 (train) and 2.4 (test).
+- Figures: `results/metrics_train_vs_test.png`, `results/equity_curves.png`.
 
-*TBD – generated by `scripts/run_backtest.py` → `results/summary.md`, `results/metrics_train_vs_test.png`*
+### 7.3 Costs and robustness
 
-### 7.3 Robustness (train period only) and cost sensitivity (test period)
+- **Cost sensitivity (test):** the Ext. 1 Sharpe falls from 1.03 (\$0.0035/share) to 0.76 (\$0.0235/share). The edge survives realistic costs (`results/cost_sensitivity.png`).
+- **Parameter grid (train only, Ext. 2):** Sharpe ratios between 0.82 and 1.23. The maximum is at VM = 1.5 / lookback 14, the same as the paper's §4.4. The grid is noisy, with no clean plateau, so parameter choice moves the Sharpe by ±0.2.
 
-*TBD – `results/robustness_train_sharpe.csv`, `results/cost_sensitivity.png`*
+### 7.4 After publication
+
+| Ext. 2, paper costs | Ann. return | Sharpe |
+|---|---|---|
+| Test before publication (2022-01 – 2024-04) | 33.7% | 2.17 |
+| After publication (2024-05 – 2026-10) | 0.9% | 0.13 |
+| SPY, after publication | 20.8% | 1.26 |
+
+All three variants have a Sharpe ratio of about 0 after the paper's publication. The cause could be alpha decay (crowding) or a regime effect (calm, rising market; 0DTE options). With 2.4 years (t ≈ 0.2) the two cannot be separated statistically.
+
+### 7.5 Trade-level diagnostics (train period, Ext. 1)
+
+- **False breakouts:** 34% of entries are stopped out at the very next decision time. These average −17 bp, all other trades +12.5 bp.
+- **Lunch time:** entries between 12:00 and 14:00 have a negative average return. Entries from 14:30 on are positive. This is consistent with paper FAQ Q18.
+- **Volatility regimes** (quintiles of trailing realised vol): the relationship is not monotonic. The strategy is weak in very calm years (2016–17) and in V-shaped crashes (2020, 2025), and strong in trending volatile years (2018, 2022).
 
 ---
 
-## 8. Own strategy *(TBD)*
+## 8. Own strategy – ML long/short/flat model
 
-Design, pre-registered hypotheses and evaluation plan: see [`extensions.md`](extensions.md) (transient-spike filter + ML meta-labeling). Results follow here.
+Full design and discussion: [`extensions.md`](extensions.md).
+
+- **What:** a logistic regression on 7 paper-inspired features predicts P(up until the close) at every decision time. The position is long, short or flat with a no-trade margin. Execution, costs and sizing are identical to the replication.
+- **Selection:** the feature set, C and margin are chosen by expanding-window CV by year on 2016–2021 only (selected: 7 features, C = 0.01, margin = 0.02). Adding the paper's discrete signal did not help in CV.
+
+| Test 2022-01 – 2026-10 | Sharpe (paper costs) | Sharpe (conservative) | Ann. return | Max DD |
+|---|---|---|---|---|
+| Ext. 1 (paper rule, 1x) | 1.02 | 0.96 | 6.7% | 10.0% |
+| **ML (1x)** | **0.59** | **0.54** | 5.7% | 12.8% |
+| Ext. 2 (paper rule, vol targeting) | 1.10 | 1.04 | 15.8% | 22.3% |
+| **ML + vol targeting** | **0.71** | **0.65** | 13.3% | 20.5% |
+
+**Findings:**
+
+- **H1 confirmed:** test AUC 0.518 > 0.5, a small but real out-of-sample edge.
+- **H2 rejected:** over the full test period, ML does not beat the rule.
+- **After publication:** ML Sharpe 0.51 vs. 0.03 for the rule.
+- **Correlation with the rule:** −0.03. This makes a combination of both the most promising next step.
+- **Coefficients:** VWAP distance is positive, which supports the paper's VWAP logic. Rising volatility is negative.
 
 ---
 
@@ -157,3 +223,5 @@ Design, pre-registered hypotheses and evaluation plan: see [`extensions.md`](ext
 | 2026-10-04 | Initial implementation: data pipeline, Noise Area, base + 2 extensions, metrics, tests, CI |
 | 2026-10-05 | Cross-check with the authors' reference code → added dividend adjustment and minimum commission (+2 tests). Added mathematical specification (`docs/strategy.md`). |
 | 2026-10-05 | Own-strategy design (`docs/extensions.md`): spike filter + ML meta-labeling, informed by paper §4 / FAQ (VM benchmark, RSI/VIX/NR/FOMC features, sizing instead of skipping). |
+| 2026-10-06 | Real-data run: fixed half-day after-hours bars (NYSE early-close calendar) and dividend noise. Replication validated against the paper's yearly table (corr. 0.99). |
+| 2026-10-06 | Own strategy switched from extension ideas to a stand-alone ML model (logistic regression); CV on train, one test evaluation. Results in §8 and `extensions.md`. |

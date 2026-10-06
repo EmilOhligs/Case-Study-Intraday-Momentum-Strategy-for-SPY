@@ -70,12 +70,16 @@ def compute_signals(data: DayData, cfg: StrategyConfig) -> _Signals:
 
 def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: CostConfig = CostConfig(),
                  start: str | None = None, end: str | None = None, initial_capital: float = 100_000.0,
-                 day_filter: np.ndarray | None = None) -> BacktestResult:
+                 day_filter: np.ndarray | None = None,
+                 target_positions: np.ndarray | None = None) -> BacktestResult:
     """Simulate the strategy on days in [start, end].
 
     Signals are computed on the full history (so the first test day already has a 14-day lookback),
     but P&L starts at `start` with `initial_capital`.
     `day_filter` (optional, bool per day) lets a variant skip days entirely - it must be known before the open.
+    `target_positions` (optional, days x 390, values in {-1, 0, +1}, NaN = no view) replaces the paper's
+    signal rule: at every decision time the position is set to this value. Used by the ML strategy.
+    Execution, sizing (`cfg.sizing`), costs and the flat-at-close rule are identical for all strategies.
     """
     sig = compute_signals(data, cfg)
     in_range = np.ones(len(data), dtype=bool)
@@ -114,7 +118,11 @@ def run_backtest(data: DayData, cfg: StrategyConfig = StrategyConfig(), costs: C
                 price = data.close[i, j]
                 if not np.isfinite(price):
                     continue
-                new_pos = _target_position(cfg, pos, price, sig.upper[i, j], sig.lower[i, j], data.vwap[i, j])
+                if target_positions is not None:
+                    tp = target_positions[i, j]
+                    new_pos = 0 if np.isnan(tp) else int(tp)
+                else:
+                    new_pos = _target_position(cfg, pos, price, sig.upper[i, j], sig.lower[i, j], data.vwap[i, j])
                 if new_pos == pos:
                     continue
                 exec_px = data.nxt_open[i, j]             # executed at the open of the next bar

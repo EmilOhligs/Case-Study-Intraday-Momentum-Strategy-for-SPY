@@ -1,5 +1,7 @@
 # Intraday Momentum on SPY – Mathematical Specification
 
+*Part I: the paper's strategy (§1–8). Part II: our own ML strategy (§9–12).*
+
 *Based on Zarattini, Aziz & Barbon (2024), "Beat the Market". This document states every step of the strategy and its evaluation as a formula, in the same order as the code in [`src/intraday_momentum/`](../src/intraday_momentum). Each section names the module that implements it.*
 
 **Contents**
@@ -12,6 +14,10 @@
 6. [Performance metrics](#6-performance-metrics-metricspy)
 7. [Evaluation protocol](#7-evaluation-protocol)
 8. [Summary of parameters](#8-summary-of-parameters)
+9. [ML: sample, label and features](#9-sample-label-and-features)
+10. [ML: model and estimation](#10-model-and-estimation)
+11. [ML: model selection and evaluation](#11-model-selection-and-evaluation)
+12. [ML: parameters](#12-parameters-of-the-ml-strategy)
 
 ---
 
@@ -275,3 +281,177 @@ For example, a Sharpe ratio of 1 over 4 test years gives $t \approx 2$, which is
 | $c_{\min}$ | minimum commission per order | \$0.35 |
 | $\delta$ | slippage per share | \$0.001 / \$0.005 |
 | $A_0$ | initial capital | \$100,000 |
+
+---
+---
+
+# Part II – Own strategy: ML long/short/flat model
+
+*Implemented in [`features.py`](../src/intraday_momentum/features.py) and [`ml_strategy.py`](../src/intraday_momentum/ml_strategy.py). Design rationale and results: [`extensions.md`](extensions.md).*
+
+Everything except the **decision rule** is identical to Part I: the decision times $\mathcal K_t$ (§3.1), execution at $O_{t,k}$ (§3.4), flat at the close, sizing (§4) and costs (§5). So this part only specifies how the position $x_{t,k}$ is chosen.
+
+## 9. Sample, label and features
+
+### 9.1 Sample
+
+One observation per day and decision time:
+
+```math
+\mathcal D = \{(t,k) : t = 1,\dots,T,\ k \in \mathcal K_t\}, \qquad |\mathcal D| \approx 12 \cdot T .
+```
+
+Observations with incomplete features are dropped. This is the burn-in of 60 days for $\hat\sigma^{(60)}$.
+
+### 9.2 Label
+
+The target is whether the price rises from the execution price to the close:
+
+```math
+r_{t,k} = \frac{C_t}{\hat P_{t,k}} - 1, \qquad y_{t,k} = \mathbf 1\{r_{t,k} > 0\} \in \{0,1\}.
+```
+
+$y_{t,k}$ depends on prices after $(t,k)$. It is only used as a training target, never as an input.
+
+### 9.3 Features
+
+Let $\sigma_{t,k}$ be the Noise-Area σ (§2.1), and let $\hat\sigma^{(n)}_t$ be the sample standard deviation of the daily returns $r_{t-n},\dots,r_{t-1}$ (§4). The feature vector $\mathbf x_{t,k} \in \mathbb R^7$ is
+
+```math
+\begin{aligned}
+x^{(1)}_{t,k} &= \frac{P_{t,k}/O_t - 1}{\sigma_{t,k}} && \text{move from the open in Noise-Area units}\\
+x^{(2)}_{t,k} &= \frac{P_{t,k}/\mathrm{VWAP}_{t,k} - 1}{\sigma_{t,k}} && \text{distance to VWAP}\\
+x^{(3)}_{t} &= \frac{O_t/\tilde C_{t-1} - 1}{\hat\sigma^{(14)}_t} && \text{overnight gap (dividend-adjusted)}\\
+x^{(4)}_{t,k} &= \frac{P_{t,k}/P_{t,k-30} - 1}{\hat\sigma^{(14)}_t} && \text{last 30 minutes } (P_{t,0} := O_t)\\
+x^{(5)}_{k} &= k/390 && \text{time of day}\\
+x^{(6)}_{t} &= \big(\mathrm{RSI}^{(5)}_{t-1} - 50\big)/50 && \text{5-day RSI at the previous close, in } [-1,1]\\
+x^{(7)}_{t} &= \ln\!\big(\hat\sigma^{(5)}_t / \hat\sigma^{(60)}_t\big) && \text{volatility regime}
+\end{aligned}
+```
+
+**RSI (Wilder).** With daily price changes $\Delta_s = C_s - C_{s-1}$ and the exponential average $\mathrm{EMA}_\alpha$ with $\alpha = 1/5$:
+
+```math
+\mathrm{RS}_s = \frac{\mathrm{EMA}_\alpha\big(\max(\Delta_s,0)\big)}{\mathrm{EMA}_\alpha\big(\max(-\Delta_s,0)\big)},
+\qquad
+\mathrm{RSI}^{(5)}_s = 100 - \frac{100}{1 + \mathrm{RS}_s}.
+```
+
+**No look-ahead.** Every $x^{(i)}_{t,k}$ is $\mathcal F_{t,k}$-measurable. $x^{(1)}, x^{(2)}, x^{(4)}$ use prices up to minute $k$ and σ from previous days. $x^{(3)}, x^{(6)}, x^{(7)}$ use data up to the previous close or the open. `tests/test_ml.py` checks this by changing prices after $k$.
+
+## 10. Model and estimation
+
+### 10.1 Standardisation
+
+Each feature is centred and scaled with the mean and standard deviation of the **training set only**:
+
+```math
+z^{(i)}_{t,k} = \frac{x^{(i)}_{t,k} - \mu_i}{s_i}, \qquad \mu_i, s_i \text{ estimated on the training fold.}
+```
+
+This puts all coefficients on the same scale, so the L2 penalty treats them equally and their sizes are comparable.
+
+### 10.2 Logistic regression
+
+```math
+p_{t,k} := \Pr(y_{t,k} = 1 \mid \mathbf z_{t,k}) = \frac{1}{1 + e^{-\eta_{t,k}}}, \qquad \eta_{t,k} = \beta_0 + \boldsymbol\beta^\top \mathbf z_{t,k}.
+```
+
+Equivalently, the **log-odds are linear** in the features:
+
+```math
+\ln\frac{p_{t,k}}{1-p_{t,k}} = \beta_0 + \sum_{i=1}^{7} \beta_i\, z^{(i)}_{t,k}.
+```
+
+> **Interpretation.** If feature $i$ rises by one standard deviation, the odds of an up-move are multiplied by $e^{\beta_i}$. For example, $\beta_{\text{vol regime}} = -0.148$ gives $e^{-0.148} \approx 0.86$: the odds of "up until the close" fall by about 14%. The intercept $\beta_0$ captures the base rate. In training, 52.5% of labels are 1 because of the positive drift of SPY.
+
+### 10.3 Penalised maximum likelihood
+
+The coefficients minimise the L2-penalised negative log-likelihood (cross-entropy). The intercept is not penalised:
+
+```math
+\hat{\boldsymbol\beta} = \arg\min_{\beta_0,\boldsymbol\beta}\;
+\underbrace{-\sum_{(t,k)\in\mathcal D_{\text{train}}} \Big[ y_{t,k}\ln p_{t,k} + (1-y_{t,k})\ln(1-p_{t,k}) \Big]}_{\text{negative log-likelihood}}
+\;+\; \frac{1}{2C}\,\lVert\boldsymbol\beta\rVert_2^2 .
+```
+
+- The objective is **strictly convex**, so there is a unique optimum. It is found numerically with L-BFGS (scikit-learn).
+- Its gradient has a simple form, the sum of prediction errors times features plus the penalty:
+
+```math
+\nabla_{\boldsymbol\beta} = \sum_{(t,k)} \big(p_{t,k} - y_{t,k}\big)\,\mathbf z_{t,k} + \frac{1}{C}\boldsymbol\beta .
+```
+
+- **Role of $C$.** A small $C$ means a strong penalty, which shrinks the coefficients towards 0 and pushes $p$ towards the base rate (low variance, more bias). Cross-validation selected $C = 0.01$, the strongest regularisation in the grid. This is consistent with a very low signal-to-noise ratio.
+
+### 10.4 Decision rule
+
+With a no-trade margin $m \ge 0$:
+
+```math
+x_{t,k} =
+\begin{cases}
++1 & \text{if } \hat p_{t,k} > \tfrac12 + m,\\
+-1 & \text{if } \hat p_{t,k} < \tfrac12 - m,\\
+\ \ 0 & \text{otherwise.}
+\end{cases}
+```
+
+The position is re-evaluated at every $k \in \mathcal K_t$. A model that turns neutral therefore closes the trade, which replaces the paper's stop. Shares $q_t$, execution, costs and P&L follow §4–5 exactly.
+
+> **Why a margin.** Every trade costs $2(c+\delta)$ per share (§5). Near $\hat p = 0.5$ the expected gross gain is close to zero, so it cannot cover the costs. The margin removes these marginal trades. Its size is chosen by the backtest Sharpe after costs (§11), not by accuracy.
+
+## 11. Model selection and evaluation
+
+### 11.1 Expanding-window cross-validation (training period only)
+
+For each validation year $Y \in \mathcal Y = \{2018, 2019, 2020, 2021\}$:
+
+```math
+\mathcal D^{(Y)}_{\text{fit}} = \{(t,k) \in \mathcal D : t_0 \le t < Y\}, \qquad
+\mathcal D^{(Y)}_{\text{val}} = \{(t,k) \in \mathcal D : t \in Y\}.
+```
+
+The model is always fitted on the past and validated on the following year, the same way it would be used in practice. All observations of one day are always in the same fold.
+
+For every candidate $\theta = (C, m)$ in the grid $\{0.01, 0.1, 1\} \times \{0, 0.01, 0.02, 0.04\}$, the strategy is backtested on $\mathcal D^{(Y)}_{\text{val}}$ (paper costs), and
+
+```math
+\theta^\star = \arg\max_{\theta}\; \frac{1}{|\mathcal Y|}\sum_{Y\in\mathcal Y} \mathrm{SR}_Y(\theta).
+```
+
+The feature set (A: the 7 features; B: A plus the paper's discrete signal $\in\{-1,0,1\}$) is chosen the same way. The final model is then fitted once on the whole training period 2016–2021 with $\theta^\star$ and evaluated **once** on the test period.
+
+### 11.2 AUC
+
+The AUC measures how well $\hat p$ *ranks* up- and down-moves, independently of any threshold. With $n_+$ positive and $n_-$ negative labels:
+
+```math
+\mathrm{AUC} = \frac{1}{n_+\,n_-} \sum_{i:\,y_i=1}\ \sum_{j:\,y_j=0} \mathbf 1\{\hat p_i > \hat p_j\}
+= \Pr\big(\hat p_{\text{up}} > \hat p_{\text{down}}\big).
+```
+
+AUC = 0.5 means no skill and 1 means perfect ranking. Our test AUC of 0.518 means that in 51.8% of all (up, down) pairs, the up-move received the higher probability.
+
+> **Effective sample size.** The 12 observations of a day share the same close, so their labels are strongly dependent. The informative sample size is therefore closer to the number of **days** (≈1,200 in the test period) than to the number of rows (≈14,000). A naive standard error of the AUC based on all rows would be far too small. This is the same issue as the Kish effective sample size for weighted samples: correlated observations carry less information than their count suggests.
+
+### 11.3 Combination with the paper rule (descriptive)
+
+For two strategies with mean daily returns $\mu_i$, volatilities $\sigma_i$ and correlation $\rho$, a portfolio with weights $w_1 + w_2 = 1$ has
+
+```math
+\mathrm{SR}_{\text{comb}} = \frac{w_1\mu_1 + w_2\mu_2}{\sqrt{w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2\rho\,\sigma_1\sigma_2}}\;\sqrt{252}.
+```
+
+For $\rho \approx 0$ the denominator shrinks, which raises the combined Sharpe ratio. With inverse-volatility weights $w_i \propto 1/\sigma_i$ (ML 0.39, rule 0.61) and the measured $\rho = -0.03$, the test Sharpe of the mix is about 1.15. The weights were **not** chosen on the training period, so this is a hypothesis for further work, not a result.
+
+## 12. Parameters of the ML strategy
+
+| Symbol | Meaning | Value |
+|---|---|---|
+| $\mathcal K_t$ | decision times | every 30 min, 10:00–15:30 (as in Part I) |
+| $\mathbf x$ | features | 7 (feature set A, chosen by CV) |
+| $C$ | inverse L2 strength | 0.01 (CV) |
+| $m$ | no-trade margin | 0.02 (CV) |
+| $\mathcal Y$ | validation years | 2018–2021 |
+| sizing | 1x or volatility targeting | as in §4 |

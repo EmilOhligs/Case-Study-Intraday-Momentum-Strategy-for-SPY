@@ -53,7 +53,7 @@ def plot_metric_bars(summary: pd.DataFrame, path: Path | None = None,
         ax.set_xticks(x, summary.index, rotation=25, ha="right", fontsize=8)
         ax.set_title(labels.get(m, m))
         ax.grid(axis="y", alpha=0.3)
-    axes[0].legend(frameon=False)
+    axes[0].legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1.08), ncol=2)
     return _finish(fig, path)
 
 

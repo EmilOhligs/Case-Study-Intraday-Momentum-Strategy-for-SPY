@@ -22,8 +22,8 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 
 ## Documentation
 
-- [`docs/strategy.md`](docs/strategy.md): the full strategy and evaluation in mathematical notation
-- [`docs/extensions.md`](docs/extensions.md): design of our own extensions (transient-spike filter, ML meta-labeling), hypotheses and evaluation plan
+- [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is our ML model (features, estimation, CV, AUC).
+- [`docs/extensions.md`](docs/extensions.md): own strategy (ML long/short/flat model): design, hypotheses, validation, results
 - [`docs/report.md`](docs/report.md): case study report covering data, implementation decisions, **cross-check with the authors' reference code**, validation, results and limitations
 
 ## Repository structure
@@ -37,13 +37,16 @@ src/intraday_momentum/
     metrics.py     Sharpe, CAGR, volatility, drawdown, alpha/beta
     evaluation.py  train/test evaluation, cost sensitivity, parameter grid (shared by notebook and script)
     diagnostics.py trade-level analysis: false breakouts, P&L by entry time / side / year
+    features.py    ML features (no look-ahead) and labels
+    ml_strategy.py own strategy: logistic regression, expanding-window CV, evaluation
     plotting.py    figures
     synthetic.py   random-walk minute bars for tests
 notebooks/
     backtest.ipynb     main analysis notebook (imports the package, no duplicated logic)
 scripts/
     download_data.py   Alpaca download
-    run_backtest.py    full evaluation -> results/
+    run_backtest.py    paper replication -> results/
+    run_ml.py          own ML strategy -> results/ml_*
 tests/                 pytest suite (look-ahead, P&L accounting, metrics)
 results/               tables and figures
 ```
@@ -56,12 +59,26 @@ pip install -r requirements.txt && pip install -e .
 cp .env.example .env               # add your Alpaca API keys
 python scripts/download_data.py    # ~10 years of SPY minute bars into data/
 jupyter lab notebooks/backtest.ipynb   # interactive analysis
-python scripts/run_backtest.py     # same evaluation, headless -> results/
+python scripts/run_backtest.py     # paper replication, headless -> results/
+python scripts/run_ml.py           # own ML strategy, headless -> results/ml_*
 pytest                             # run the tests
 ```
 
 `python scripts/run_backtest.py --synthetic` runs the whole pipeline on synthetic data (no API key needed).
 
-## Results
+## Results (SPY 1-min, train 2016–2021, test 2022-01 – 2026-10, after costs)
 
-*Filled in after running on real data – see `results/summary.md`.*
+| Strategy | Sharpe train | Sharpe test | Ann. return test | Max DD test |
+|---|---|---|---|---|
+| Base: opposite-band stop | 0.37 | 0.74 | 6.8% | 8.9% |
+| Ext. 1: + band/VWAP stop | 0.66 | 1.02 | 6.7% | 10.0% |
+| Ext. 2: + vol targeting (full paper model) | 0.93 | 1.10 | 15.8% | 22.3% |
+| **Own: ML logistic (1x)** | 0.02 (in-sample) | **0.59** | 5.7% | 12.8% |
+| **Own: ML logistic + vol targeting** | 0.29 (in-sample) | **0.71** | 13.3% | 20.5% |
+| SPY buy & hold | 1.05 | 0.75 | 12.2% | 24.5% |
+
+- **Replication:** yearly returns match the paper's table with a correlation of 0.99. The ranking of the variants holds out of sample, and the strategy survives conservative costs.
+- **After publication** (2024-05 on) the paper rule's Sharpe is about 0, while the ML model keeps 0.51.
+- **ML vs. rule:** the ML model has a small out-of-sample edge (AUC 0.518) but does not beat the rule over the full test period. Its returns are uncorrelated with the rule (ρ = −0.03), so combining the two is the most promising next step.
+
+Details: [`docs/report.md`](docs/report.md), [`docs/extensions.md`](docs/extensions.md), `results/`.
