@@ -22,6 +22,22 @@ import pandas as pd
 
 TZ = "America/New_York"
 MINUTES_PER_SESSION = 390  # 09:30 - 16:00
+EARLY_CLOSE_MINUTES = 210  # 09:30 - 13:00 on NYSE half days
+MIN_DIVIDEND = 0.05        # smaller "dividends" are rounding noise from adjusted vs. raw prices
+
+
+def nyse_early_closes(dates: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """NYSE half days (13:00 close) among the given trading days.
+
+    Rules: day after Thanksgiving; Dec 24 and Jul 3 if they are trading days on Mon-Thu
+    (if they fall on a Friday the exchange is closed for the observed holiday instead).
+    Without this, the vendor's after-hours bars between 13:00 and 16:00 would be treated
+    as regular-session bars.
+    """
+    dates = pd.DatetimeIndex(dates).normalize()
+    is_thanksgiving_friday = (dates.month == 11) & (dates.dayofweek == 4) & (dates.day >= 23) & (dates.day <= 29)
+    is_eve = (((dates.month == 12) & (dates.day == 24)) | ((dates.month == 7) & (dates.day == 3))) & (dates.dayofweek <= 3)
+    return dates[is_thanksgiving_friday | is_eve]
 
 
 @dataclass
@@ -63,7 +79,9 @@ def _regular_session(bars: pd.DataFrame) -> pd.DataFrame:
     rth = bars[(minutes >= 0) & (minutes < MINUTES_PER_SESSION)].copy()
     rth["date"] = rth.index.normalize().tz_localize(None)
     rth["minute"] = minutes[(minutes >= 0) & (minutes < MINUTES_PER_SESSION)]
-    return rth
+    half_days = nyse_early_closes(pd.DatetimeIndex(rth["date"].unique()))
+    after_early_close = rth["date"].isin(half_days) & (rth["minute"] >= EARLY_CLOSE_MINUTES)
+    return rth[~after_early_close]
 
 
 def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series | None = None) -> DayData:
@@ -118,8 +136,8 @@ def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series
 
 def load_dividends(path: str | Path) -> pd.Series:
     """Cash dividends per share indexed by ex-date (written by scripts/download_data.py)."""
-    div = pd.read_csv(path, index_col=0, parse_dates=True)
-    return div["dividend"]
+    div = pd.read_csv(path, index_col=0, parse_dates=True)["dividend"]
+    return div[div >= MIN_DIVIDEND]
 
 
 def load_daily_benchmark(path: str | Path) -> pd.Series:

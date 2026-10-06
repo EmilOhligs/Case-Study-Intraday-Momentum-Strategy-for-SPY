@@ -98,7 +98,7 @@ def main() -> None:
     f = (daily["close"] / raw["close"]).dropna()
     prev_raw = raw["close"].shift(1).reindex(f.index)
     div = (prev_raw * (1 - f.shift(1) / f)).round(4)
-    div = div[div > 0.01].rename("dividend")
+    div = div[div >= 0.05].rename("dividend")   # smaller values are rounding noise
     div.index = div.index.tz_convert("America/New_York").normalize().tz_localize(None)
     div.to_csv(DATA_DIR / f"{args.symbol}_dividends.csv")
     print(f"  found {len(div)} dividends -> data/{args.symbol}_dividends.csv. Done.")

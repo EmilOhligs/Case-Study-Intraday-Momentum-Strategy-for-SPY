@@ -42,3 +42,20 @@ def test_dividend_is_subtracted_from_previous_close_on_ex_date():
     adj = build_day_data(bars, dividends=pd.Series({ex_date: 1.5}))
     assert np.isclose(adj.prev_close[3], plain.prev_close[3] - 1.5)
     assert np.allclose(adj.prev_close[[1, 2, 4]], plain.prev_close[[1, 2, 4]])
+
+
+def test_nyse_early_closes():
+    import pandas as pd
+    from intraday_momentum.data import nyse_early_closes
+    days = pd.DatetimeIndex(["2025-11-28", "2024-12-24", "2023-07-03", "2025-07-03",
+                             "2025-11-27", "2021-12-23", "2019-12-24", "2025-12-26"])
+    assert set(nyse_early_closes(days).strftime("%Y-%m-%d")) == {"2025-11-28", "2024-12-24", "2023-07-03",
+                                                                 "2025-07-03", "2019-12-24"}
+
+
+def test_after_hours_bars_on_half_days_are_dropped():
+    import pandas as pd
+    bars = make_minute_bars(n_days=1, start="2025-11-28", seed=9)   # full 390 bars on a half day
+    data = build_day_data(bars)
+    assert data.n_bars[0] == 210
+    assert np.isclose(data.day_close[0], bars.loc[:"2025-11-28 12:59", "close"].iloc[-1])
