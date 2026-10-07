@@ -59,7 +59,7 @@
 | Noise Area σ | mean of \|P/O − 1\| over the previous 14 days, per minute of the day | paper Eq. (σ). Still valid if up to ~20% of the window is missing (half days). |
 | Stop variants | Base: opposite band (stateful). Ext. 1: max/min(band, VWAP) (stateless) | paper Tables 1 and 2 |
 | Sizing | `floor(AUM · L / Open)`, with L = 1 or `min(4, 2% / σ̂)` | paper Table 3 |
-| Costs | `max($0.35, $0.0035·q) + δ·q` per order, δ ∈ {0.001, 0.005} | IBKR entry tier. δ = 0.005 is about half the SPY spread. |
+| Costs | `max($0.35, $0.0035·q) + $0.001·q` per order | IBKR entry-tier commission plus the paper's slippage estimate |
 | Risk-free rate | 0 in the Sharpe ratio | same as the paper. With 2022–2025 T-bill rates around 4–5%, the excess-return Sharpe would be lower. |
 | Train / test | 2016–2021 / 2022–today, each starting with $100k | parameters are fixed to the paper's values, so nothing is fitted on the test set |
 
@@ -80,14 +80,14 @@ The authors publish a Python version of their backtest on [concretumgroup.com](h
 | Vol targeting | `min(4, 0.02 / spx_vol)`, `spx_vol` over **15** days | **14** days, as stated in the paper | ⚠️ deliberate deviation (paper text) |
 | Share rounding | `round()` | `floor()` | ⚠️ minor. `floor` never exceeds the available capital. |
 | Commission | `max($0.35, 0.0035·q)` per order, a reversal counts as 2 | **minimum was missing → added**, reversal = 2 orders | 🔧 fixed after the cross-check |
-| Slippage | **none in the code** | $0.001 (paper text) and $0.005 (conservative) | ⚠️ the reference code is more optimistic than the paper |
+| Slippage | **none in the code** | $0.001 (paper text) | ⚠️ the reference code is more optimistic than the paper |
 | Sample | Polygon, ~2 years, no split | Alpaca 2016–today, train/test split | ➕ extension |
 
 **Findings:**
 
 1. The core logic (σ, bands, VWAP condition, decision times) matches exactly.
 2. The cross-check found **two omissions in my first version**: the dividend adjustment and the minimum commission. Both are now implemented and unit-tested.
-3. The **reference code applies no slippage**, although the paper text states $0.001/share. Results reproduced with the reference code are therefore slightly optimistic. We report both cost scenarios.
+3. The **reference code applies no slippage**, although the paper text states $0.001/share. Results reproduced with the reference code are therefore slightly optimistic. We apply the paper's \$0.001.
 4. There are small inconsistencies between the paper and the code: the vol window is 15 days in the code vs. 14 in the paper. We follow the paper.
 
 ---
@@ -147,12 +147,12 @@ The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (
 
 ### 7.2 Train vs. test
 
-| Strategy | Sharpe train | Sharpe test | Ann. return test | Ann. vol test | MDD test | Sharpe test (conservative costs) |
-|---|---|---|---|---|---|---|
-| Base: opposite-band stop | 0.37 | 0.74 | 6.8% | 9.5% | 8.9% | 0.71 |
-| Ext. 1: + band/VWAP stop | 0.66 | 1.02 | 6.7% | 6.6% | 10.0% | 0.96 |
-| Ext. 2: + vol targeting | 0.93 | 1.10 | 15.8% | 14.2% | 22.3% | 1.04 |
-| SPY buy & hold | 1.05 | 0.75 | 12.2% | 17.3% | 24.5% | – |
+| Strategy | Sharpe train | Sharpe test | Ann. return test | Ann. vol test | MDD test |
+|---|---|---|---|---|---|
+| Base: opposite-band stop | 0.37 | 0.74 | 6.8% | 9.5% | 8.9% |
+| Ext. 1: + band/VWAP stop | 0.66 | 1.02 | 6.7% | 6.6% | 10.0% |
+| Ext. 2: + vol targeting | 0.93 | 1.10 | 15.8% | 14.2% | 22.3% |
+| SPY buy & hold | 1.05 | 0.75 | 12.2% | 17.3% | 24.5% |
 
 - The paper's ranking (base < VWAP stop < vol targeting) holds in both periods.
 - Vol targeting adds return mainly through leverage: on average 2.7x, and capped at 4x on 22% of days. Its Sharpe gain is small.
@@ -189,12 +189,12 @@ Full design and discussion: [`extensions.md`](extensions.md).
 - **What:** a logistic regression on 7 paper-inspired features predicts P(up until the close) at every decision time. The position is long, short or flat with a no-trade margin. Execution, costs and sizing are identical to the replication.
 - **Selection:** the feature set, C and margin are chosen by expanding-window CV by year on 2016–2021 only (selected: 7 features, C = 0.01, margin = 0.02). Adding the paper's discrete signal did not help in CV.
 
-| Test 2022-01 – 2026-10 | Sharpe (paper costs) | Sharpe (conservative) | Ann. return | Max DD |
-|---|---|---|---|---|
-| Ext. 1 (paper rule, 1x) | 1.02 | 0.96 | 6.7% | 10.0% |
-| **ML (1x)** | **0.59** | **0.54** | 5.7% | 12.8% |
-| Ext. 2 (paper rule, vol targeting) | 1.10 | 1.04 | 15.8% | 22.3% |
-| **ML + vol targeting** | **0.71** | **0.65** | 13.3% | 20.5% |
+| Test 2022-01 – 2026-10 | Sharpe | Ann. return | Max DD |
+|---|---|---|---|
+| Ext. 1 (paper rule, 1x) | 1.02 | 6.7% | 10.0% |
+| **ML (1x)** | **0.59** | 5.7% | 12.8% |
+| Ext. 2 (paper rule, vol targeting) | 1.10 | 15.8% | 22.3% |
+| **ML + vol targeting** | **0.71** | 13.3% | 20.5% |
 
 **Findings:**
 

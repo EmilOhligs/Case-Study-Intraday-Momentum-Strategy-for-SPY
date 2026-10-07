@@ -31,7 +31,7 @@ class CostConfig:
     """Per-share transaction costs, charged on every share bought or sold."""
 
     commission_per_share: float = 0.0035   # Interactive Brokers entry-level tier (paper)
-    slippage_per_share: float = 0.001      # paper's own live estimate; half-spread of SPY is ~0.005
+    slippage_per_share: float = 0.001      # the paper's own live estimate
     min_commission_per_order: float = 0.35 # IBKR minimum per order (as in the authors' reference code)
 
     @property

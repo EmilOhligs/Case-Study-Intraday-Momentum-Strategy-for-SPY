@@ -21,8 +21,7 @@ PAPER_VARIANTS: dict[str, StrategyConfig] = {
 
 # Cost scenarios
 COST_SCENARIOS: dict[str, CostConfig] = {
-    "paper": CostConfig(commission_per_share=0.0035, slippage_per_share=0.001),
-    "conservative": CostConfig(commission_per_share=0.0035, slippage_per_share=0.005),  # ~half the SPY spread
+    "paper": CostConfig(commission_per_share=0.0035, slippage_per_share=0.001),   # IBKR commission + paper's slippage
 }
 
 BURN_IN_DAYS = 20   # >= lookback (14) + margin, so the first evaluated day has a full Noise Area

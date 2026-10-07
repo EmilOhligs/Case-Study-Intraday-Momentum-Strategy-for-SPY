@@ -17,7 +17,7 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 - **Data:** SPY 1-minute bars (consolidated SIP feed, unadjusted) from Alpaca, 2016 onwards; regular session only. Benchmark: SPY buy & hold from split- and dividend-adjusted daily bars.
 - **Train/test split:** train 2016–2021, test 2022–today. All variants use the **paper's parameters**, so nothing is fitted on the test set. A lookback × volatility-multiplier grid is evaluated **on the train period only** as a robustness check.
 - **No look-ahead:** the signal at 10:00 uses the close of the 09:59 bar; the trade is executed at the **open of the next bar**. The Noise Area and the volatility estimate use only previous days. Both properties are unit-tested (`tests/test_signals.py`).
-- **Costs:** $0.0035/share commission (IBKR) plus slippage. *Paper* scenario: $0.001/share. *Conservative* scenario: $0.005/share (≈ half the SPY bid-ask spread). Plus a full cost-sensitivity curve.
+- **Costs:** $0.0035/share commission (IBKR, at least $0.35 per order) plus $0.001/share slippage, as in the paper. Plus a cost-sensitivity curve up to $0.0235/share.
 - **Metrics:** annualized return (CAGR), annualized volatility (σ·√252), Sharpe ratio (r_f = 0), max drawdown, hit ratio, skewness, alpha/beta vs SPY.
 
 ## Documentation
@@ -77,7 +77,7 @@ pytest                             # run the tests
 | **Own: ML logistic + vol targeting** | 0.29 (in-sample) | **0.71** | 13.3% | 20.5% |
 | SPY buy & hold | 1.05 | 0.75 | 12.2% | 24.5% |
 
-- **Replication:** yearly returns match the paper's table with a correlation of 0.99. The ranking of the variants holds out of sample, and the strategy survives conservative costs.
+- **Replication:** yearly returns match the paper's table with a correlation of 0.99. The ranking of the variants holds out of sample, and the edge survives considerably higher costs (sensitivity curve).
 - **After publication** (2024-05 on) the paper rule's Sharpe is about 0, while the ML model keeps 0.51.
 - **ML vs. rule:** the ML model has a small out-of-sample edge (AUC 0.518) but does not beat the rule over the full test period. Its returns are uncorrelated with the rule (ρ = −0.03), so combining the two is the most promising next step.
 

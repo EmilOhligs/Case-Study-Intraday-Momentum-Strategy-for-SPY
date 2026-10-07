@@ -25,7 +25,7 @@ Because everything except the decision rule is identical, the comparison with th
 ## 2. Hypotheses (fixed before the test period was evaluated)
 
 - **H1:** The model has predictive power out of sample: test AUC > 0.5.
-- **H2:** The ML strategy reaches a **higher test Sharpe ratio after costs than the paper rule (Ext. 1)**, in both cost scenarios.
+- **H2:** The ML strategy reaches a **higher test Sharpe ratio after costs than the paper rule (Ext. 1)**.
 
 ---
 
@@ -85,7 +85,7 @@ Here $\sigma_{t,k}$ is the Noise-Area σ (previous 14 days only) and $\hat\sigma
 
 1. **Expanding-window cross-validation by year on the training period:** fit on 2016…(Y−1) and validate on Y, for Y = 2018, 2019, 2020, 2021.
 2. **Grid:** $C \in \{0.01, 0.1, 1\}$ and margin $m \in \{0, 0.01, 0.02, 0.04\}$.
-   **Criterion:** mean validation **Sharpe after costs** (paper cost scenario). Accuracy is not used, because the trading result is what matters.
+   **Criterion:** mean validation **Sharpe after costs**. Accuracy is not used, because the trading result is what matters.
 3. **Feature-set choice, also inside the CV:**
    - A = the 7 features above
    - B = A + the paper's discrete signal (+1/0/−1)
@@ -128,13 +128,13 @@ Results by validation year for the selected model (A, C = 0.01, m = 0.02):
 
 ### 6.3 Test period vs. the paper rule (same split, costs and metrics)
 
-| Strategy (test 2022-01 – 2026-10) | Ann. return | Ann. vol | Sharpe (paper costs) | Sharpe (conservative) | Max DD | Beta |
-|---|---|---|---|---|---|---|
-| Ext. 1: band/VWAP stop (1x) | 6.7% | 6.6% | **1.02** | **0.96** | 10.0% | 0.00 |
-| Ext. 2: + vol targeting | 15.8% | 14.2% | **1.10** | **1.04** | 22.3% | −0.04 |
-| **ML: logistic (1x)** | 5.7% | 10.3% | **0.59** | **0.54** | 12.8% | −0.03 |
-| **ML: logistic + vol targeting** | 13.3% | 20.6% | **0.71** | **0.65** | 20.5% | 0.07 |
-| SPY buy & hold | 12.2% | 17.3% | 0.75 | 0.75 | 24.5% | – |
+| Strategy (test 2022-01 – 2026-10) | Ann. return | Ann. vol | Sharpe | Max DD | Beta |
+|---|---|---|---|---|---|
+| Ext. 1: band/VWAP stop (1x) | 6.7% | 6.6% | **1.02** | 10.0% | 0.00 |
+| Ext. 2: + vol targeting | 15.8% | 14.2% | **1.10** | 22.3% | −0.04 |
+| **ML: logistic (1x)** | 5.7% | 10.3% | **0.59** | 12.8% | −0.03 |
+| **ML: logistic + vol targeting** | 13.3% | 20.6% | **0.71** | 20.5% | 0.07 |
+| SPY buy & hold | 12.2% | 17.3% | 0.75 | 24.5% | – |
 
 In the test period the model is long 45% of the time, short 17% and flat 38% (at decision times), with 1.3 round trips per day.
 

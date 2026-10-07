@@ -6,7 +6,7 @@
 
 **Contents**
 
-1. [Notation and information structure](#1-notation-and-information-structure)
+1. [Notation](#1-notation)
 2. [The Noise Area](#2-the-noise-area-signalspy)
 3. [Signal and position](#3-signal-and-position-backtestpy)
 4. [Position sizing](#4-position-sizing)
@@ -21,7 +21,7 @@
 
 ---
 
-## 1. Notation and information structure
+## 1. Notation
 
 **Days and minutes.** Trading days are indexed by $t = 1,\dots,T$. The regular session (09:30–16:00 ET) consists of $N = 390$ one-minute bars $j = 0,\dots,N-1$. Bar $j$ covers the interval $[09{:}30 + j,\ 09{:}30 + j + 1)$. On half days the session ends earlier. In general $N_t \le N$ denotes the number of bars on day $t$ (`data.py`).
 
@@ -36,12 +36,6 @@ The open and close of the day are
 ```math
 O_t := O_{t,0}, \qquad C_t := P_{t,N_t}.
 ```
-
-**Information.** $\mathcal F_{t,k}$ denotes the information available at minute $k$ of day $t$: all bars of days $1,\dots,t-1$ and bars $0,\dots,k-1$ of day $t$.
-
-> **No look-ahead bias** ⇔ every decision taken at $(t,k)$ is $\mathcal F_{t,k}$-measurable *and* is executed at a price realised **after** $(t,k)$.
-
-Every quantity below is marked with the information set it depends on.
 
 ---
 
@@ -61,15 +55,7 @@ The *size of a normal move* at minute $k$ is the mean over the previous $n = 14$
 \sigma_{t,k} = \frac{1}{n}\sum_{i=1}^{n} m_{t-i,k} .
 ```
 
-The sum starts at $i=1$, so $\sigma_{t,k}$ uses only previous days and is $\mathcal F_{t,0}$-measurable. In the code this is a rolling mean over days, shifted by one day.
-
-> **Remark – why the band widens like $\sqrt{k}$.** $\sigma_{t,k}$ is a mean *absolute* move, not a standard deviation. Suppose one-minute log returns are i.i.d. $\mathcal N(0,s^2)$. Then $\ln(P_{t,k}/O_t) \sim \mathcal N(0, k s^2)$, and for small moves
->
-> ```math
-> \mathbb E[m_{t,k}] \approx \mathbb E|Z|\, s\sqrt{k} = \sqrt{\tfrac{2}{\pi}}\, s\sqrt{k}, \qquad Z\sim\mathcal N(0,1).
-> ```
->
-> The threshold for a "significant" move therefore grows like $\sqrt{k}$. This gives the funnel-shaped Noise Area in Figure 1 of the paper. A fixed threshold would be too loose in the morning and too tight in the afternoon.
+The sum starts at $i=1$, so $\sigma_{t,k}$ uses only previous days (no look-ahead). In the code this is a rolling mean over days, shifted by one day.
 
 ### 2.2 Boundaries with gap adjustment
 
@@ -84,8 +70,6 @@ Let $C_{t-1}$ be the previous close and $D_t$ the cash dividend if $t$ is an ex-
 
 The Noise Area is the interval $[\mathrm{LB}_{t,k},\ \mathrm{UB}_{t,k}]$.
 
-> **Remark – gap adjustment.** After a gap down ($O_t < \tilde C_{t-1}$), the upper band is anchored at yesterday's close. A long signal then requires the price to close the whole gap **and** to move a further $\sigma_{t,k}$. The lower band stays anchored at the open, so a continuation of the gap is detected quickly. Gap ups work the same way in the other direction. Without the dividend correction, the mechanical price drop on ex-dates would look like a gap down.
-
 ### 2.3 Session VWAP
 
 With the typical price $\bar p_{t,j} = (H_{t,j}+L_{t,j}+C_{t,j})/3$:
@@ -94,7 +78,7 @@ With the typical price $\bar p_{t,j} = (H_{t,j}+L_{t,j}+C_{t,j})/3$:
 \mathrm{VWAP}_{t,k} = \frac{\sum_{j=0}^{k-1} \bar p_{t,j}\,V_{t,j}}{\sum_{j=0}^{k-1} V_{t,j}} .
 ```
 
-It uses only bars up to minute $k$, so it is $\mathcal F_{t,k}$-measurable.
+It uses only bars up to minute $k$.
 
 ---
 
@@ -143,7 +127,7 @@ This rule is **memoryless**. As soon as a long falls back below the upper band o
 A decision taken at $(t,k)$ is executed at the open of the next bar:
 
 ```math
-\hat P_{t,k} = O_{t,k} \qquad (\text{realised after } \mathcal F_{t,k}).
+\hat P_{t,k} = O_{t,k} \qquad (\text{the open of the next bar, i.e. after the decision}).
 ```
 
 Every open position is closed at the day's close $C_t$, i.e. $x_{t,N_t} = 0$. There is no overnight exposure.
@@ -169,7 +153,7 @@ where $A_{t-1}$ is the equity at the end of day $t-1$ and $L_t$ is the leverage.
 \qquad \bar r_t = \frac1n\sum_{i=1}^n r_{t-i},
 ```
 
-which is $\mathcal F_{t,0}$-measurable. Then
+which uses only past daily returns. Then
 
 ```math
 L_t = \min\!\left(L_{\max},\ \frac{\sigma^\star}{\hat\sigma_t}\right),
@@ -195,26 +179,16 @@ Let the day's round trips be $\ell = 1,\dots,R_t$, each with side $s_\ell\in\{\p
 where the cost of one order is
 
 ```math
-\kappa(q) = \max\big(c_{\min},\ c\,q\big) + \delta\, q ,
+\kappa(q) = \max\big(\$0.35,\ \$0.0035 \cdot q\big) + \$0.001 \cdot q ,
 ```
 
-with commission $c$ = \$0.0035 per share, minimum $c_{\min}$ = \$0.35 per order and slippage $\delta$ per share (\$0.001 in the paper scenario, \$0.005 in the conservative scenario).
+i.e. the Interactive Brokers commission (\$0.0035 per share, at least \$0.35 per order) plus \$0.001 slippage per share, the paper's own estimate.
 
 **Equity and returns:**
 
 ```math
 A_t = A_{t-1} + \Pi_t, \qquad R^{\text{strat}}_t = \frac{\Pi_t}{A_{t-1}}, \qquad A_0 = \$100{,}000 .
 ```
-
-> **Proposition – break-even cost.** Let $\bar\pi$ be the average gross profit per share per round trip. A round trip consists of two orders. For large $q$, where the minimum commission does not bind, the strategy is profitable on average if and only if
->
-> ```math
-> \bar\pi > 2\,(c + \delta).
-> ```
->
-> *Proof.* On average a round trip earns $q\,\bar\pi$ and costs $2\kappa(q) = 2q(c+\delta)$ when $cq \ge c_{\min}$. ∎
->
-> The paper reports $\bar\pi \approx$ \$0.09, so the edge disappears at roughly $c+\delta \approx$ \$0.045 per share and side. This is why cost assumptions matter so much for an intraday strategy.
 
 ---
 
@@ -263,8 +237,8 @@ For example, a Sharpe ratio of 1 over 4 test years gives $t \approx 2$, which is
 
 - **Split.** The sample is split chronologically into a training period (2016–2021) and a test period (2022–today). Each period is simulated separately, starting with $A_0$ = \$100,000.
 - **No fitting on the test set.** All variants use the paper's parameters $(n, \mathrm{VM}, \sigma^\star, L_{\max}) = (14, 1, 2\%, 4)$. The grid $n\in\{7,14,30,60\}$, $\mathrm{VM}\in\{0.8, 1.0, 1.2, 1.5\}$ is evaluated **on the training period only**, as a robustness check. A good result is a flat plateau of Sharpe ratios, not a single sharp peak.
-- **No look-ahead.** $\sigma_{t,k}$, $\hat\sigma_t$, $\tilde C_{t-1}$ and $L_t$ are $\mathcal F_{t,0}$-measurable. $P_{t,k}$ and $\mathrm{VWAP}_{t,k}$ are $\mathcal F_{t,k}$-measurable. Execution happens at $O_{t,k}$, after $\mathcal F_{t,k}$. Unit tests check these properties (`tests/test_signals.py`).
-- **Costs.** Two scenarios ($\delta = 0.001$ and $\delta = 0.005$), plus a sweep over total costs $c+\delta \in [0.0035,\ 0.0235]$ per share in the test period.
+- **No look-ahead.** $\sigma_{t,k}$, $\hat\sigma_t$, $\tilde C_{t-1}$ and $L_t$ use only data from previous days. $P_{t,k}$ and $\mathrm{VWAP}_{t,k}$ use only bars up to the decision minute. Execution happens at the open of the next bar. Unit tests check these properties (`tests/test_signals.py`).
+- **Costs.** Commission plus \$0.001 slippage per share as in the paper, plus a sensitivity sweep of the total cost per share from \$0.0035 to \$0.0235 in the test period.
 
 ---
 
@@ -279,7 +253,7 @@ For example, a Sharpe ratio of 1 over 4 test years gives $t \approx 2$, which is
 | $L_{\max}$ | leverage cap | 4 |
 | $c$ | commission per share | \$0.0035 |
 | $c_{\min}$ | minimum commission per order | \$0.35 |
-| $\delta$ | slippage per share | \$0.001 / \$0.005 |
+| – | slippage per share | \$0.001 |
 | $A_0$ | initial capital | \$100,000 |
 
 ---
@@ -337,7 +311,7 @@ x^{(7)}_{t} &= \ln\!\big(\hat\sigma^{(5)}_t / \hat\sigma^{(60)}_t\big) && \text{
 \mathrm{RSI}^{(5)}_s = 100 - \frac{100}{1 + \mathrm{RS}_s}.
 ```
 
-**No look-ahead.** Every $x^{(i)}_{t,k}$ is $\mathcal F_{t,k}$-measurable. $x^{(1)}, x^{(2)}, x^{(4)}$ use prices up to minute $k$ and σ from previous days. $x^{(3)}, x^{(6)}, x^{(7)}$ use data up to the previous close or the open. `tests/test_ml.py` checks this by changing prices after $k$.
+**No look-ahead.** Every feature only uses information available at the decision time: $x^{(1)}, x^{(2)}, x^{(4)}$ use prices up to minute $k$ and σ from previous days. $x^{(3)}, x^{(6)}, x^{(7)}$ use data up to the previous close or the open. `tests/test_ml.py` checks this by changing prices after $k$.
 
 ## 10. Model and estimation
 
@@ -399,7 +373,7 @@ x_{t,k} =
 
 The position is re-evaluated at every $k \in \mathcal K_t$. A model that turns neutral therefore closes the trade, which replaces the paper's stop. Shares $q_t$, execution, costs and P&L follow §4–5 exactly.
 
-> **Why a margin.** Every trade costs $2(c+\delta)$ per share (§5). Near $\hat p = 0.5$ the expected gross gain is close to zero, so it cannot cover the costs. The margin removes these marginal trades. Its size is chosen by the backtest Sharpe after costs (§11), not by accuracy.
+> **Why a margin.** Every round trip pays commission and slippage twice, at entry and exit (§5). Near $\hat p = 0.5$ the expected gross gain is close to zero, so it cannot cover the costs. The margin removes these marginal trades. Its size is chosen by the backtest Sharpe after costs (§11), not by accuracy.
 
 ## 11. Model selection and evaluation
 
