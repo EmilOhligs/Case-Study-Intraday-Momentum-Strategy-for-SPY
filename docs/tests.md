@@ -79,6 +79,6 @@ Two test patterns appear several times:
 
 ## What the tests do not cover
 
-- They do not check that the strategy is profitable. That is an empirical result (see [`report.md`](report.md)).
+- They do not check that the strategy is profitable. That is an empirical result (see [`results.md`](results.md)).
 - They do not check the downloaded market data itself.
 - They use the cost model as specified. Whether \$0.001 slippage per share is realistic is a modelling assumption, examined in the cost sensitivity analysis.

@@ -20,7 +20,3 @@ All files here are written by the scripts and the notebook. SPY 1-minute data, t
 | [`metrics_overview.png`](metrics_overview.png) | Sharpe ratio, return, volatility and max drawdown of **all** implementations, train vs. test | `run_ml.py` |
 | [`risk_return.png`](risk_return.png) | Annualized return vs. volatility of all implementations | `run_ml.py` |
 | [`ml_equity_test.png`](ml_equity_test.png) | Equity curves in the test period: ML strategy vs. paper rule vs. SPY | `run_ml.py` |
-
-## Raw data
-
-[`tables/`](tables) holds the same results as CSV files with full precision, plus the cross-validation table, the model coefficients and the lookback × volatility-multiplier grid.

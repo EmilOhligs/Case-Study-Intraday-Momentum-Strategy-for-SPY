@@ -18,7 +18,7 @@ The case study lists "an ML-based model that predicts long/short/flat intraday e
 
 Because everything except the decision rule is identical, the comparison with the paper rule isolates the value of the decision rule.
 
-**Alternatives considered** (see §8): a transient-spike filter and ML meta-labeling on top of the paper's signal. We chose the stand-alone model because it is the more original variation and tests the paper's hypothesis directly: if intraday momentum exists, the model should learn it from the data.
+**Why a stand-alone model** and not a filter on top of the paper's signal: it tests the paper's hypothesis directly. If intraday momentum exists, the model should learn it from the data. Two filter variants are described in §8.
 
 ---
 
@@ -169,9 +169,9 @@ In the test period the model is long 45% of the time, short 17% and flat 38% (at
 6. **Walk-forward re-fitting** every year instead of one fit on 2016–2021.
 7. **Multi-asset** (QQQ, IWM, …): more independent bets (paper FAQ Q12/13).
 
-### Alternatives considered (not implemented)
+### Other possible variations (not implemented)
 
-| Idea | Why it was not the main route |
+| Idea | Assessment |
 |---|---|
 | **Transient-spike filter** (require the breakout for *m* minutes, or with above-normal volume) | an extension, not an own strategy. Its premise is supported by the data: 34% of Ext. 1 entries are stopped out at the next decision, at −17 bp vs. +12.5 bp for the other trades (train period). Benchmark would be a wider band (VM = 1.5). |
 | **ML meta-labeling** (model vetoes or sizes the paper's trades) | depends on the paper's signal. The paper's FAQ (Q19–21) shows that hard filters often cost total return. |

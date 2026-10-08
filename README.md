@@ -25,7 +25,7 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 - [`docs/assignment.md`](docs/assignment.md): the original case-study assignment and where each task is covered
 - [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is our ML model (features, estimation, CV, AUC).
 - [`docs/extensions.md`](docs/extensions.md): own strategy (ML long/short/flat model): design, hypotheses, validation, results
-- [`docs/report.md`](docs/report.md): case study report covering data, implementation decisions, **cross-check with the authors' reference code**, validation, results and limitations
+- [`docs/results.md`](docs/results.md): the paper in brief, comparison with the authors' reference code, and all results with a discussion of every figure
 - [`docs/tests.md`](docs/tests.md): what each of the 26 unit tests checks
 
 ## Repository structure
@@ -50,7 +50,7 @@ scripts/
     run_backtest.py    paper replication -> results/
     run_ml.py          own ML strategy + overview of all implementations -> results/
 tests/                 pytest suite (look-ahead, P&L accounting, metrics), explained in docs/tests.md
-results/               figures and summary tables (index: results/README.md), raw CSVs in results/tables/
+results/               figures and summary tables (index: results/README.md)
 ```
 
 ## How to run
@@ -83,4 +83,4 @@ pytest                             # run the tests
 - **After publication** (2024-05 on) the paper rule's Sharpe is about 0, while the ML model keeps 0.51.
 - **ML vs. rule:** the ML model has a small out-of-sample edge (AUC 0.518) but does not beat the rule over the full test period. Its returns are uncorrelated with the rule (ρ = −0.03), so combining the two is the most promising next step.
 
-Details: [`docs/report.md`](docs/report.md), [`docs/extensions.md`](docs/extensions.md), `results/`.
+Details and figures: [`docs/results.md`](docs/results.md), [`docs/extensions.md`](docs/extensions.md).

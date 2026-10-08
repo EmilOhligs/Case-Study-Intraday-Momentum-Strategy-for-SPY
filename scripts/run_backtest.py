@@ -1,4 +1,4 @@
-"""Run the full evaluation of the paper replication. Figures and summary.md go to results/, raw CSVs to results/tables/.
+"""Run the full evaluation of the paper replication. Figures and summary.md go to results/.
 
 Usage:
     python scripts/run_backtest.py                 # real data (see scripts/download_data.py)
@@ -37,9 +37,6 @@ def main() -> None:
 
     periods = make_periods(data, split)
     summary, full = evaluate(data, PAPER_VARIANTS, COST_SCENARIOS, periods, bench)
-    tables = out / "tables"
-    tables.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(tables / "summary.csv", index=False)
     with open(out / "summary.md", "w") as f:
         for cost_name, cost in COST_SCENARIOS.items():
             table = format_table(summary_view(summary, cost_name))
@@ -53,11 +50,9 @@ def main() -> None:
     plot_metric_bars(metric_bar_table(summary, "paper", order), out / "metrics_train_vs_test.png")
 
     sens = cost_sensitivity(data, PAPER_VARIANTS, periods["Test"])
-    sens.to_csv(tables / "cost_sensitivity.csv")
     plot_cost_sensitivity(sens, out / "cost_sensitivity.png")
 
     grid = parameter_grid(data, PAPER_VARIANTS["Ext. 2: + vol targeting"], COST_SCENARIOS["paper"], periods["Train"])
-    grid.to_csv(tables / "robustness_train_sharpe.csv")
     print("\nTrain-period Sharpe, lookback x VM (paper variant):\n", grid.round(2).to_string())
 
     ext1 = full[("paper", "Ext. 1: + band/VWAP stop")]

@@ -43,6 +43,6 @@ Good luck with the task, we look forward to discussing your case study with you.
 
 | Task | Covered in |
 |---|---|
-| 1. Paper: hypothesis, signal, execution, risk controls, regimes | [`report.md`](report.md) §1.1, [`strategy.md`](strategy.md) Part I |
-| 2. Implementation, train/test split, costs, Sharpe / return / volatility | `src/intraday_momentum/`, [`../notebooks/backtest.ipynb`](../notebooks/backtest.ipynb) §4–7, [`report.md`](report.md) §7 |
-| 3. Own strategy (ML long/short/flat model) | [`extensions.md`](extensions.md), [`strategy.md`](strategy.md) Part II, notebook §8, [`report.md`](report.md) §8 |
+| 1. Paper: hypothesis, signal, execution, risk controls, regimes | [`results.md`](results.md) §1, [`strategy.md`](strategy.md) Part I |
+| 2. Implementation, train/test split, costs, Sharpe / return / volatility | `src/intraday_momentum/`, [`../notebooks/backtest.ipynb`](../notebooks/backtest.ipynb) §4–7, [`results.md`](results.md) §3–5 |
+| 3. Own strategy (ML long/short/flat model) | [`extensions.md`](extensions.md), [`strategy.md`](strategy.md) Part II, notebook §8, [`results.md`](results.md) §6–7 |

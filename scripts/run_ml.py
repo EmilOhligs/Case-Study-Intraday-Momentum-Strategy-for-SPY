@@ -1,4 +1,4 @@
-"""Own strategy: ML (logistic regression) long/short/flat model. Figures and ml_summary.md go to results/, raw CSVs to results/tables/.
+"""Own strategy: ML (logistic regression) long/short/flat model. Figures and ml_summary.md go to results/.
 
 Usage:
     python scripts/run_ml.py              # real data
@@ -39,12 +39,6 @@ def main() -> None:
     all_paper_summary, paper_full = evaluate(data, PAPER_VARIANTS, COST_SCENARIOS, periods, bench)
     paper_summary = all_paper_summary[all_paper_summary.strategy != "Base: opposite-band stop"]
     summary = pd.concat([paper_summary, run.summary], ignore_index=True)
-    tables = out / "tables"
-    tables.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(tables / "ml_summary.csv", index=False)
-    run.cv_table.to_csv(tables / "ml_cv_table.csv")
-    run.feature_set_comparison.to_csv(tables / "ml_feature_set_comparison.csv")
-    run.coefficients.to_csv(tables / "ml_coefficients.csv")
 
     print("Feature-set comparison (CV on train):\n", run.feature_set_comparison.round(3).to_string())
     print("\nSelected:", run.cfg)
