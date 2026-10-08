@@ -23,8 +23,6 @@ def _trades(result: BacktestResult, start=None, end=None) -> pd.DataFrame:
 
 def false_breakout_stats(result: BacktestResult, start=None, end=None, decision_every_min: int = 30) -> pd.Series:
     """Share of entries that are closed again at the very next decision time (not at the close).
-
-    These are the "false breakouts" Idea 1 (transient-spike filter) targets.
     """
     t = _trades(result, start, end)
     if t.empty:

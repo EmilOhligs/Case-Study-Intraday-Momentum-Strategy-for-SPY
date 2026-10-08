@@ -54,6 +54,9 @@ def main() -> None:
 
     grid = parameter_grid(data, PAPER_VARIANTS["Ext. 2: + vol targeting"], COST_SCENARIOS["paper"], periods["Train"])
     print("\nTrain-period Sharpe, lookback x VM (paper variant):\n", grid.round(2).to_string())
+    with open(out / "summary.md", "a") as f:
+        f.write("\n### Robustness: train-period Sharpe of Ext. 2, lookback (rows) x volatility multiplier (columns)\n\n"
+                f"{grid.round(2).to_markdown()}\n")
 
     ext1 = full[("paper", "Ext. 1: + band/VWAP stop")]
     best_day = str(ext1.returns.idxmax().date())

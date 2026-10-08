@@ -346,7 +346,7 @@ The coefficients minimise the L2-penalised negative log-likelihood (cross-entrop
 \nabla_{\boldsymbol\beta} = \sum_{(t,k)} \big(p_{t,k} - y_{t,k}\big)\,\mathbf z_{t,k} + \frac{1}{C}\boldsymbol\beta .
 ```
 
-- **Role of $C$.** A small $C$ means a strong penalty, which shrinks the coefficients towards 0 and pushes $p$ towards the base rate (low variance, more bias). Cross-validation selected $C = 0.01$, the strongest regularisation in the grid. This is consistent with a very low signal-to-noise ratio.
+- **Role of $C$.** A small $C$ means a strong penalty, which shrinks the coefficients towards 0 and pushes $p$ towards the base rate (low variance, more bias). Cross-validation selected $C = 0.01$. With about 17,000 training rows and 7 features the penalty hardly matters: the validation AUC is the same for all three values of $C$.
 
 ### 10.4 Decision rule
 
@@ -398,8 +398,10 @@ The AUC measures how well $\hat p$ *ranks* up- and down-moves, independently of 
 AUC = 0.5 means no skill and 1 means perfect ranking. The test AUC of 0.518 means that in 51.8% of all (up, down) pairs, the up-move received the higher probability.
 
 > **Effective sample size.** The 12 observations of a day share the same close, so their labels are strongly dependent. The informative sample size is therefore closer to the number of **days** (≈1,200 in the test period) than to the number of rows (≈14,000). A naive standard error of the AUC based on all rows would be far too small. This is the same issue as the Kish effective sample size for weighted samples: correlated observations carry less information than their count suggests.
+>
+> **Standard error.** The code therefore resamples whole days (bootstrap, 500 draws) and takes the standard deviation of the resulting AUC values. For the test period this gives 0.011, so the test AUC of 0.518 lies about 1.6 standard errors above 0.5. That is not significant at the 5% level.
 
-### 11.3 Combination with the paper rule (descriptive)
+### 11.3 Combination with the paper rule
 
 For two strategies with mean daily returns $\mu_i$, volatilities $\sigma_i$ and correlation $\rho$, a portfolio with weights $w_1 + w_2 = 1$ has
 
@@ -407,7 +409,7 @@ For two strategies with mean daily returns $\mu_i$, volatilities $\sigma_i$ and 
 \mathrm{SR}_{\text{comb}} = \frac{w_1\mu_1 + w_2\mu_2}{\sqrt{w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2\rho\,\sigma_1\sigma_2}}\;\sqrt{252}.
 ```
 
-For $\rho \approx 0$ the denominator shrinks, which raises the combined Sharpe ratio. With inverse-volatility weights $w_i \propto 1/\sigma_i$ (ML 0.39, rule 0.61) and the measured $\rho = -0.03$, the test Sharpe of the mix is about 1.15. The weights were **not** chosen on the training period, so this is a hypothesis for further work, not a result.
+For $\rho \approx 0$ the denominator shrinks, which raises the combined Sharpe ratio. The inverse-volatility weights $w_i \propto 1/\sigma_i$ are computed on the **train** period (rule 0.59, ML 0.41). With the measured test correlation $\rho = -0.03$, the test Sharpe ratio of the mix is 1.14.
 
 ## 12. Parameters of the ML strategy
 

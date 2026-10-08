@@ -1,6 +1,6 @@
 # Tests
 
-The test suite has 26 tests in `tests/`. It runs with `pytest` in about two seconds and needs no market data or API key. GitHub Actions runs it on every push (Python 3.10 with pandas 2 and Python 3.12 with pandas 3).
+The test suite has 27 tests in `tests/`. It runs with `pytest` in about two seconds and needs no market data or API key. GitHub Actions runs it on every push (Python 3.10 with pandas 2 and Python 3.12 with pandas 3).
 
 ```bash
 pytest          # all tests
@@ -30,7 +30,7 @@ Two test patterns appear several times:
 | `test_gap_adjustment_widens_band_on_the_gap_side` | The upper band is anchored at max(open, previous close) and the lower band at min(open, previous close). |
 | `test_daily_vol_uses_only_past_returns` | The volatility used for sizing on day 20 equals the standard deviation of the 14 daily returns before day 20. |
 
-## `test_data.py` – data preparation (6 tests)
+## `test_data.py` – data preparation (7 tests)
 
 | Test | What it checks |
 |---|---|
@@ -39,6 +39,7 @@ Two test patterns appear several times:
 | `test_vwap_matches_manual_computation` | VWAP equals the cumulative sum of typical price × volume divided by cumulative volume. |
 | `test_dividend_is_subtracted_from_previous_close_on_ex_date` | On an ex-dividend date the previous close is reduced by the dividend, and no other day changes. |
 | `test_nyse_early_closes` | The half-day calendar (day after Thanksgiving, Christmas Eve, 3 July) is correct for several years. |
+| `test_prev_close_is_the_previous_session_even_if_that_day_is_dropped` | A day with too few bars is dropped. The next day still uses that day's last price as its previous close, not the close of two days earlier. |
 | `test_after_hours_bars_on_half_days_are_dropped` | A half day has 210 bars and closes at 13:00, even if the data contains later bars. |
 
 ## `test_backtest.py` – trading logic and accounting (6 tests)

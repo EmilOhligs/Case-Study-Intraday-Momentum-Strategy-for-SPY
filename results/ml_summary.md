@@ -16,13 +16,36 @@
 
 ### Sub-periods (paper costs)
 
-|                                                                              | ann_return   | ann_vol   |   sharpe | max_drawdown   |   sharpe_t |
-|:-----------------------------------------------------------------------------|:-------------|:----------|---------:|:---------------|-----------:|
-| ('Test, before publication (2022-01 - 2024-04)', 'Ext. 1: + band/VWAP stop') | 14.2%        | 7.3%      |     1.86 | 4.7%           |       2.83 |
-| ('Test, before publication (2022-01 - 2024-04)', 'ML: logistic (1x)')        | 6.6%         | 10.3%     |     0.67 | 12.8%          |       1.02 |
-| ('Test, before publication (2022-01 - 2024-04)', 'SPY buy & hold')           | 3.9%         | 18.6%     |     0.3  | 24.5%          |       0.46 |
-| ('After publication (2024-05 - today)', 'Ext. 1: + band/VWAP stop')          | 0.0%         | 5.8%      |     0.03 | 10.0%          |       0.05 |
-| ('After publication (2024-05 - today)', 'ML: logistic (1x)')                 | 4.8%         | 10.3%     |     0.51 | 9.4%           |       0.79 |
-| ('After publication (2024-05 - today)', 'SPY buy & hold')                    | 20.8%        | 16.0%     |     1.26 | 18.8%          |       1.96 |
+|                                                                                         | ann_return   | ann_vol   |   sharpe | max_drawdown   |   sharpe_t |
+|:----------------------------------------------------------------------------------------|:-------------|:----------|---------:|:---------------|-----------:|
+| ('Test, before publication (2022-01 - 2024-04)', 'Ext. 1: + band/VWAP stop')            | 14.2%        | 7.3%      |     1.86 | 4.7%           |       2.83 |
+| ('Test, before publication (2022-01 - 2024-04)', 'ML: logistic (1x)')                   | 6.6%         | 10.3%     |     0.67 | 12.8%          |       1.02 |
+| ('Test, before publication (2022-01 - 2024-04)', 'Control: always long 10:00 to close') | 0.4%         | 14.5%     |     0.1  | 14.7%          |       0.15 |
+| ('Test, before publication (2022-01 - 2024-04)', 'SPY buy & hold')                      | 3.9%         | 18.6%     |     0.3  | 24.5%          |       0.46 |
+| ('After publication (2024-05 - today)', 'Ext. 1: + band/VWAP stop')                     | 0.0%         | 5.8%      |     0.03 | 10.0%          |       0.05 |
+| ('After publication (2024-05 - today)', 'ML: logistic (1x)')                            | 4.8%         | 10.3%     |     0.51 | 9.4%           |       0.79 |
+| ('After publication (2024-05 - today)', 'Control: always long 10:00 to close')          | 2.5%         | 11.8%     |     0.27 | 12.3%          |       0.42 |
+| ('After publication (2024-05 - today)', 'SPY buy & hold')                               | 20.8%        | 16.0%     |     1.26 | 18.8%          |       1.96 |
 
 Correlation of daily returns ML vs Ext. 1 (test period): -0.03
+
+Correlation of daily returns ML vs SPY open-to-close (test period): -0.08
+
+### ML trades by side (test period, gross of costs)
+
+| side   |   n_trades |   hit_ratio |   avg_bps |   total_gross_pnl |
+|:-------|-----------:|------------:|----------:|------------------:|
+| long   |       1000 |        0.5  |      1.95 |           19193.3 |
+| short  |        571 |        0.44 |      2.14 |           13316.4 |
+
+### Combination
+
+Inverse-volatility mix with weights from the train period (59% Ext. 1, 41% ML): test Sharpe 1.14
+
+### AUC
+
+|                                            |   AUC |
+|:-------------------------------------------|------:|
+| train (in-sample)                          | 0.554 |
+| test                                       | 0.518 |
+| test: standard error (bootstrap over days) | 0.011 |

@@ -74,6 +74,23 @@ def backtest_ml(data: DayData, model: Pipeline, feats: pd.DataFrame, cfg: MLConf
     return run_backtest(data, strat, costs, start=start, end=end, target_positions=positions_matrix(data, pos))
 
 
+def auc_standard_error(y: np.ndarray, p: np.ndarray, days: np.ndarray, n_boot: int = 500, seed: int = 0) -> float:
+    """Standard error of the AUC from a bootstrap over whole days.
+
+    The rows of one day share the same close, so they are resampled together. Treating all rows as
+    independent would make the standard error far too small.
+    """
+    y, p = np.asarray(y), np.asarray(p)
+    rows_of_day = [np.flatnonzero(days == d) for d in np.unique(days)]
+    rng = np.random.default_rng(seed)
+    aucs = []
+    for _ in range(n_boot):
+        idx = np.concatenate([rows_of_day[k] for k in rng.integers(0, len(rows_of_day), len(rows_of_day))])
+        if 0 < y[idx].sum() < len(idx):
+            aucs.append(roc_auc_score(y[idx], p[idx]))
+    return float(np.std(aucs, ddof=1))
+
+
 def cv_splits(feats: pd.DataFrame, train_start, val_years: list[int], train_end=None):
     """Expanding window by calendar year: train on [train_start, Y-1], validate on year Y (never after train_end)."""
     dates = feats.index.get_level_values("date")
@@ -189,7 +206,10 @@ def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig],
     train = feats[(dates >= pd.Timestamp(train_start)) & (dates <= pd.Timestamp(train_end))]
     test = feats[dates >= periods["Test"][0]]
     model = fit(train, cfg)
+    p_test = predict_proba(model, test, cfg)
     auc = pd.Series({"train (in-sample)": roc_auc_score(train["label"], predict_proba(model, train, cfg)),
-                     "test": roc_auc_score(test["label"], predict_proba(model, test, cfg))})
+                     "test": roc_auc_score(test["label"], p_test),
+                     "test: standard error (bootstrap over days)": auc_standard_error(
+                         test["label"].values, np.asarray(p_test), test.index.get_level_values("date").values)})
     summary, full = evaluate_ml(data, model, feats, cfg, periods, costs)
     return MLRun(feats, cv, cv_table, comparison, cfg, model, coefficients(model, cfg), auc, summary, full)

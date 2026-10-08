@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from .backtest import BacktestResult, run_backtest
@@ -130,6 +131,26 @@ def parameter_grid(data: DayData, base: StrategyConfig, costs: CostConfig, perio
     out = pd.DataFrame(grid, index=pd.Index(lookbacks, name="lookback_days"))
     out.columns.name = "vol_multiplier"
     return out
+
+
+def always_long_returns(data: DayData, costs: CostConfig, start=None, end=None) -> pd.Series:
+    """Control: long from the first decision time (10:00) to the close on every day, same engine and costs.
+
+    A long/short model that only earned the intraday drift of SPY would look like this series.
+    """
+    cfg = StrategyConfig(name="always_long")
+    target = np.full(data.close.shape, np.nan)
+    target[:, cfg.first_decision_min - 1::cfg.decision_every_min] = 1
+    return run_backtest(data, cfg, costs, start=start, end=end, target_positions=target).returns
+
+
+def inverse_vol_mix(a: pd.Series, b: pd.Series, train_end) -> tuple[float, pd.Series]:
+    """Weight of `a` from inverse volatilities up to `train_end`, and the daily returns of the mix afterwards."""
+    cut = pd.Timestamp(train_end)
+    inv_a, inv_b = 1 / a.loc[:cut].std(), 1 / b.loc[:cut].std()
+    w = float(inv_a / (inv_a + inv_b))
+    after = a.index > cut
+    return w, w * a[after] + (1 - w) * b.reindex(a.index)[after]
 
 
 def subperiod_table(returns: dict[str, pd.Series], subperiods: dict[str, tuple], bench: pd.Series | None = None,

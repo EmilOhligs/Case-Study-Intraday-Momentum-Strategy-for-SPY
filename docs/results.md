@@ -44,7 +44,7 @@ The authors publish a Python version of their backtest on [concretumgroup.com](h
 | Share rounding | `round()` | `floor()` | minor. `floor` never exceeds the available capital. |
 | Vol targeting | `min(4, 0.02 / vol)`, volatility over **15** days | **14** days, as stated in the paper | this repository follows the paper text |
 | Slippage | **none** | \$0.001 per share, as stated in the paper | this repository follows the paper text |
-| Sample | about 2 years, no split | 2016–2026, train/test split | longer sample, out-of-sample test |
+| Sample | about 2 years, no split | 2016–2026, train/test split | longer sample, including 2.4 years after publication |
 
 **Findings**
 
@@ -80,8 +80,8 @@ The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (
 
 **Reading the figure.**
 
-- **Sharpe ratio (left).** The ranking Base < Ext. 1 < Ext. 2 holds in both periods. Each of the paper's two refinements adds risk-adjusted return, also out of sample.
-- **No drop from train to test.** The test Sharpe ratios are higher than the train Sharpe ratios. All parameters come from the paper, so nothing was fitted on this data. The 2022 bear market, with high volatility and strong trends, helps the test period.
+- **Sharpe ratio (left).** The ranking Base < Ext. 1 < Ext. 2 holds in both periods. Each of the paper's two refinements adds risk-adjusted return in the train and in the test period.
+- **No drop from train to test.** The test Sharpe ratios are higher than the train Sharpe ratios. Two things explain this. The 2022 bear market, with high volatility and strong trends, helps the test period. And the test period is only partly out of sample: nothing was fitted on this data here, but the paper's sample runs until April 2024, so the authors chose their design (14 days, 30-minute grid, VWAP stop) knowing 2022-01 – 2024-04. Section 7 splits the test period at that date.
 - **Annualized return (middle) and volatility (right).** The band/VWAP stop (Ext. 1) leaves the return about unchanged but lowers the volatility from 9.5% to 6.6% in the test period. That is why its Sharpe ratio is higher. Vol targeting (Ext. 2) roughly doubles both return and volatility, so its Sharpe ratio rises only from 1.02 to 1.10.
 - **Leverage, not edge.** The average leverage of Ext. 2 is about 2.7x, and the 4x cap binds on about 22% of days. Strategies should be compared by Sharpe ratio, not by return.
 - **Against SPY.** SPY has the higher Sharpe ratio in the train period (1.05), and Ext. 1 and Ext. 2 have the higher one in the test period.
@@ -125,7 +125,7 @@ Own strategy: a logistic regression on seven paper-inspired features predicts th
 **Reading the figure.**
 
 - **Sharpe ratio.** In the test period the ML strategy reaches 0.59 (1x) and 0.71 (with vol targeting). That is positive, but below the paper rule (1.02 and 1.10) and slightly below SPY (0.75).
-- **Train bars of the ML strategy are in-sample**, because the model is fitted on the train period. Its train Sharpe ratio is still only 0.02. A model that had memorised the training data would show the opposite pattern (high in-sample, low out-of-sample). The strong regularisation chosen by cross-validation keeps the model simple.
+- **Train bars of the ML strategy are in-sample**, because the model is fitted on the train period. Its train Sharpe ratio is only 0.02, so the model had no profitable edge on its own training data. Classification quality and P&L are only loosely linked: the AUC falls from 0.554 in-sample to 0.518 in the test period, while the Sharpe ratio rises from 0.02 to 0.59. The test result should therefore be read with caution. Part of it may come from the market regime and not from the model.
 - **Volatility.** At 1x the ML strategy has a volatility of 10%, compared with 7% for Ext. 1. It is in the market more often (long 45% and short 17% of the decision times) and has no stop that cuts losers early.
 - **Max drawdown.** Vol targeting roughly doubles the drawdown of both the rule and the ML strategy. In the test period every strategy has a smaller drawdown than SPY.
 
@@ -150,7 +150,7 @@ Own strategy: a logistic regression on seven paper-inspired features predicts th
 
 ## 7. Before and after the paper's publication
 
-The paper was published in May 2024. The test period is split at that date.
+The paper was published in May 2024 and its sample ends in April 2024. The test period is split at that date. Only the second part is out of sample for the paper's rule itself, because the authors designed the rule with data up to April 2024. For the ML model, which is fitted on 2016–2021, the whole test period is out of sample.
 
 | | Period | Ann. return | Sharpe |
 |---|---|---|---|
@@ -158,27 +158,33 @@ The paper was published in May 2024. The test period is split at that date.
 | | 2024-05 – 2026-10 | 0.0% | 0.03 |
 | ML (1x) | 2022-01 – 2024-04 | 6.6% | 0.67 |
 | | 2024-05 – 2026-10 | 4.8% | 0.51 |
+| Control: always long 10:00 to close | 2022-01 – 2024-04 | 0.4% | 0.10 |
+| | 2024-05 – 2026-10 | 2.5% | 0.27 |
 | SPY buy & hold | 2022-01 – 2024-04 | 3.9% | 0.30 |
 | | 2024-05 – 2026-10 | 20.8% | 1.26 |
 
-- The whole out-of-sample result of the paper rule comes from the time before publication. After publication its Sharpe ratio is about 0.
+- The whole test-period result of the paper rule comes from the part that lies inside the authors' sample. In the only period that is out of sample for the rule itself, its Sharpe ratio is about 0.
 - Two explanations are possible: the edge has been traded away (crowding), or the period was a calm, steadily rising market in which intraday trends are weak. With 2.4 years of data the two cannot be separated statistically.
-- The ML strategy keeps a Sharpe ratio of 0.51 after publication. Together with the near-zero correlation, this makes a combination of rule and ML model the most promising improvement.
+- The ML strategy keeps a Sharpe ratio of 0.51 after publication. With 2.4 years this is far from significant (t ≈ 0.8).
+- **Is the ML return just the upward drift of SPY?** The model is long 45% and short 17% of the decision times, so this needs a check. Three controls say no. A strategy that is simply long from 10:00 to the close every day, with the same costs, has a Sharpe ratio of 0.10 before and 0.27 after publication. The correlation of the ML returns with SPY's open-to-close return is −0.08. And short trades earn as much per trade as long trades (2.1 bp vs. 2.0 bp, gross).
+- The ML returns are also uncorrelated with the rule (−0.03). An inverse-volatility mix with weights from the train period (59% Ext. 1, 41% ML) has a test Sharpe ratio of 1.14, compared with 1.02 for Ext. 1 alone.
 
 ---
 
 ## 8. Conclusions
 
 1. **Replication.** The implementation reproduces the paper: yearly returns correlate 0.99 with the paper's table.
-2. **Out of sample.** With the paper's parameters the strategy keeps a Sharpe ratio of 1.0–1.1 in 2022–2026, and the ranking of the variants is the same as in the paper.
+2. **Test period.** With the paper's parameters the strategy has a Sharpe ratio of 1.0–1.1 in 2022–2026, and the ranking of the variants is the same as in the paper. But 2022-01 – 2024-04 lies inside the authors' sample.
 3. **Costs.** The result is robust to much higher costs.
 4. **Vol targeting is mostly leverage.** It doubles return and risk and adds little Sharpe ratio.
-5. **After publication** the rule earns nothing. This is the main caveat.
-6. **Own strategy.** The ML model has a small out-of-sample edge (test AUC 0.518). It does not beat the rule over the full test period, but it is uncorrelated with the rule and holds up better after publication.
+5. **After publication** the rule earns nothing (Sharpe ratio 0.03). This is the only period that is out of sample for the rule itself, and it is the main caveat.
+6. **Own strategy.** The ML model does not beat the rule over the full test period. Its test AUC of 0.518 (standard error 0.011) and test Sharpe ratio of 0.59 (t ≈ 1.3) are consistent with a small edge, but not statistically significant. It is uncorrelated with the rule and with SPY, and it holds up better after publication.
 
 ## 9. Limitations
 
-- **Financing and borrowing costs are not modelled.** This affects leverage up to 4x and short positions.
+- **Leverage needs buying power, not financing.** All positions are closed the same day, so no overnight interest is paid. The real constraint of up to 4x leverage is intraday margin. Borrowing fees for short positions are not modelled.
+- **Risk-free rate of 0.** The Sharpe ratios use r_f = 0. The strategy holds cash overnight and would earn interest on it, while SPY's excess return would be lower. With 4–5% interest rates in 2023–2025, r_f = 0 therefore understates the strategy relative to SPY.
+- **Closing price.** Positions are closed at the close of the last minute bar. Live trading would use a market-on-close order, which is filled at the closing auction price.
 - **Test period length.** With about 4.75 test years, t ≈ Sharpe · √years, so a Sharpe ratio of 1 gives t ≈ 2.2. That is only borderline significant.
 - **Regime dependence.** The strategy earns in volatile, trending markets and loses in quiet, range-bound ones.
 - **Multiple testing.** Every additional variant tested increases the chance of a lucky result. The test period is therefore evaluated only once per variant.

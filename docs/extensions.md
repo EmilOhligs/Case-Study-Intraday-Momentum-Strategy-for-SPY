@@ -106,6 +106,8 @@ Here $\sigma_{t,k}$ is the Noise-Area σ (previous 14 days only) and $\hat\sigma
 
 Adding the paper's discrete signal does **not** help in CV. The continuous features already carry the information, and B trades more.
 
+**The choice of C carries no information.** The mean validation AUC is 0.532 for all three values of C, so the regularisation does not bind with about 17,000 rows and 7 features. The validation Sharpe ratios for C = 0.01, 0.1 and 1 at margin 0.02 are 0.53, 0.53 and 0.51, which is within noise. In effect only the margin was selected.
+
 Results by validation year for the selected model (A, C = 0.01, m = 0.02):
 
 | Year | 2018 | 2019 | 2020 | 2021 |
@@ -120,11 +122,11 @@ Results by validation year for the selected model (A, C = 0.01, m = 0.02):
 | `vol_regime` | −0.148 | rising volatility makes a down-move into the close more likely (volatility feedback) |
 | `vwap_sigma` | +0.079 | trading above VWAP predicts continuation. **Supports the paper's VWAP logic.** |
 | `time_of_day` | −0.059 | the later in the day, the lower P(up); this partly captures the positive drift being shorter |
-| `move_sigma` | −0.058 | *given* the VWAP distance, an extended move from the open tends to fade slightly (the two features are correlated) |
+| `move_sigma` | −0.058 | *given* the VWAP distance, an extended move from the open tends to fade slightly. The two features are correlated and can only be interpreted together. The negative sign means the model is not a pure momentum model. |
 | `rsi5` | +0.031 | after up-days, up-moves into the close are slightly more likely |
 | `gap_z`, `ret30_z` | ≈ 0 | no additional information |
 
-**AUC:** 0.554 in-sample (train), **0.518 on the test period**. The predictive power is small but above 0.5 (H1 ✓).
+**AUC:** 0.554 in-sample (train), **0.518 on the test period**. The drop from train to test shows a generalisation gap. The standard error of the test AUC is 0.011 (bootstrap over whole days, because the 12 rows of a day are dependent). The test AUC is therefore about 1.6 standard errors above 0.5. **H1 is not confirmed at the 5% level:** the result is consistent with a small edge and with no edge.
 
 ### 6.3 Test period vs. the paper rule (same split, costs and metrics)
 
@@ -138,7 +140,9 @@ Results by validation year for the selected model (A, C = 0.01, m = 0.02):
 
 In the test period the model is long 45% of the time, short 17% and flat 38% (at decision times), with 1.3 round trips per day.
 
-**H2 is rejected:** over the full test period the ML strategy has a lower Sharpe ratio than the paper rule.
+**H2 is rejected:** over the full test period the ML strategy has a lower Sharpe ratio than the paper rule. Its test Sharpe ratio of 0.59 over 4.75 years has a t-statistic of about 1.3.
+
+In the first 41 days of the train period the model is flat, because `vol_regime` needs 60 days of history. The rule trades on these days. This affects only the train comparison.
 
 ### 6.4 Sub-periods and diversification
 
@@ -148,21 +152,33 @@ In the test period the model is long 45% of the time, short 17% and flat 38% (at
 | After publication, 2024-05 – 2026-10 | 0.03 | **0.51** | 1.26 |
 
 - The paper rule's edge disappears after publication. The ML strategy keeps a modest positive Sharpe ratio in both sub-periods.
-- **The correlation of daily returns between ML and Ext. 1 is −0.03** (test period). An inverse-volatility 61/39 mix of Ext. 1 and ML would have had a test Sharpe of about **1.15**. *Descriptive only:* the weights were not chosen on the training period, so this is a hypothesis for further work, not a result.
+- **The correlation of daily returns between ML and Ext. 1 is −0.03** (test period). An inverse-volatility mix with weights from the **train** period (59% Ext. 1, 41% ML) has a test Sharpe ratio of **1.14**, compared with 1.02 for Ext. 1 alone.
+
+### 6.5 Control: is the ML return the upward drift of SPY?
+
+The model is long 45% and short 17% of the decision times, and the test period ends in a bull market. So the return could simply be the intraday drift of SPY. Three controls (test period, `results/ml_summary.md`):
+
+| Control | Result |
+|---|---|
+| Always long from 10:00 to the close, same engine and costs | Sharpe 0.10 before and 0.27 after publication (ML: 0.67 and 0.51) |
+| Correlation of ML daily returns with SPY's open-to-close return | −0.08 |
+| Gross return per trade, long vs. short | 2.0 bp (1,000 trades) vs. 2.1 bp (571 trades) |
+
+The ML return is not explained by a long bias: a pure long position earns much less, the returns are uncorrelated with SPY, and the short trades contribute as much per trade as the long trades.
 
 ---
 
 ## 7. Assessment
 
-- **Roughly right rather than precisely wrong:** a simple, regularised model has a small but real edge out of sample. It does not beat a well-designed rule on the full test period.
+- **Roughly right rather than precisely wrong:** the evidence for an edge is weak. Test AUC 0.518 ± 0.011 and test Sharpe 0.59 (t ≈ 1.3) are consistent with a small edge, but neither is statistically significant. The model does not beat a well-designed rule on the full test period.
 - **Why the rule is hard to beat:** its threshold logic and trailing stop create a positively skewed payoff (skew +1.7). The logistic model trades on small probability differences, with a hit ratio around 51% and negative skew (−1.35). Its gains are more symmetric, its losses less cut.
-- **Why it is still interesting:** it is almost uncorrelated with the rule and held up better after the paper was published. Combining both is the natural next step.
-- **Overfitting check:** the in-sample (train) Sharpe ratio is low (0.02) while the test Sharpe ratio is 0.59. This is the opposite of an overfitted model. The strong regularisation (C = 0.01) chosen by CV keeps the model simple.
+- **Why it is still interesting:** it is almost uncorrelated with the rule and with SPY, and it held up better after the paper was published. Combining both is the natural next step.
+- **In-sample vs. test:** the AUC falls from 0.554 to 0.518, while the Sharpe ratio rises from 0.02 to 0.59. Classification quality and P&L are only loosely linked. A model with a Sharpe ratio of 0.02 on its own training data had no profitable edge there, so part of the test result may be regime and not skill.
 
 ## 8. Further improvements
 
-1. **Combination with the rule:** choose weights on the training period, e.g. inverse volatility. The near-zero correlation is the strongest argument for this.
-2. **Label design:** predict the risk-adjusted return, or the return to the next decision time instead of the close. Remove the market drift from the label so the model does not learn a long bias.
+1. **Combination with the rule:** the inverse-volatility mix with train-period weights already reaches a test Sharpe ratio of 1.14. Weights could also be re-estimated on a rolling window.
+2. **Label design:** the label $\mathbf 1\{\text{return} > 0\}$ ignores the *size* of the move, but the rule earns its money from a few large winners (hit ratio 42%, skew +1.7). This mismatch explains the model's hit ratio of 51% and its negative skew. Alternatives: a regression on the forward return, sample weights proportional to the absolute forward return, or a label after costs and without the market drift.
 3. **Sizing by confidence** instead of the hard ±1 / 0 rule, e.g. position ∝ $\hat p - 0.5$.
 4. **Nonlinear models** (shallow gradient boosting) with the same CV protocol. Breakouts are threshold effects, which a linear model can only approximate.
 5. **More information:** VIX at the open, FOMC calendar, range compression (NR4/NR7). All three are motivated by paper §4.

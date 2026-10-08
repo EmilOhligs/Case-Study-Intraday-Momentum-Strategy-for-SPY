@@ -26,7 +26,7 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 - [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is my ML model (features, estimation, CV, AUC).
 - [`docs/extensions.md`](docs/extensions.md): own strategy (ML long/short/flat model): design, hypotheses, validation, results
 - [`docs/results.md`](docs/results.md): the paper in brief, comparison with the authors' reference code, and all results with a discussion of every figure
-- [`docs/tests.md`](docs/tests.md): what each of the 26 unit tests checks
+- [`docs/tests.md`](docs/tests.md): what each of the 27 unit tests checks
 
 ## Repository structure
 
@@ -79,8 +79,8 @@ pytest                             # run the tests
 | **Own: ML logistic + vol targeting** | 0.29 (in-sample) | **0.71** | 13.3% | 20.5% |
 | SPY buy & hold | 1.05 | 0.75 | 12.2% | 24.5% |
 
-- **Replication:** yearly returns match the paper's table with a correlation of 0.99. The ranking of the variants holds out of sample, and the edge survives considerably higher costs (sensitivity curve).
-- **After publication** (2024-05 on) the paper rule's Sharpe is about 0, while the ML model keeps 0.51.
-- **ML vs. rule:** the ML model has a small out-of-sample edge (AUC 0.518) but does not beat the rule over the full test period. Its returns are uncorrelated with the rule (ρ = −0.03), so combining the two is the most promising next step.
+- **Replication:** yearly returns match the paper's table with a correlation of 0.99. The ranking of the variants is the same in the train and the test period, and the result survives considerably higher costs (sensitivity curve).
+- **Out of sample only from May 2024:** the paper's sample ends in April 2024, so the authors already knew 2022-01 – 2024-04 when they designed the rule. In that part of the test period Ext. 1 has a Sharpe ratio of 1.86. In the 2.4 years after publication it is 0.03. The only period that is out of sample for the rule itself shows no edge.
+- **ML vs. rule:** the ML model does not beat the rule over the full test period. Its evidence is weak: test AUC 0.518 with a standard error of 0.011, test Sharpe 0.59 with t ≈ 1.3. That is consistent with a small edge, but not statistically significant. Its returns are uncorrelated with the rule (ρ = −0.03) and with SPY's intraday return (ρ = −0.08), and it keeps a Sharpe ratio of 0.51 after publication. An inverse-volatility mix with weights from the train period has a test Sharpe of 1.14.
 
 Details and figures: [`docs/results.md`](docs/results.md), [`docs/extensions.md`](docs/extensions.md).

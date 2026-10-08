@@ -125,11 +125,14 @@ def build_day_data(bars: pd.DataFrame, min_bars: int = 180, dividends: pd.Series
     day_close = close[np.arange(len(close)), n_bars - 1]
     dates = pd.DatetimeIndex(close_raw.index)
 
-    sel = keep
-    day_close, day_open, n_bars = day_close[sel], day_open[sel], n_bars[sel]
+    # previous session's close, taken before short days are dropped, so a dropped day does not
+    # shift the close of two days ago into the gap adjustment
     prev_close = np.concatenate([[np.nan], day_close[:-1]])
     if dividends is not None:
-        prev_close = prev_close - dividends.reindex(dates[sel]).fillna(0.0).values
+        prev_close = prev_close - dividends.reindex(dates).fillna(0.0).values
+
+    sel = keep
+    day_close, day_open, n_bars, prev_close = day_close[sel], day_open[sel], n_bars[sel], prev_close[sel]
     return DayData(dates=dates[sel], day_open=day_open, prev_close=prev_close, day_close=day_close,
                    n_bars=n_bars, close=close[sel], nxt_open=nxt_open[sel], vwap=vwap[sel])
 

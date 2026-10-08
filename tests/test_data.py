@@ -60,3 +60,13 @@ def test_after_hours_bars_on_half_days_are_dropped():
     data = build_day_data(bars)
     assert data.n_bars[0] == 210
     assert np.isclose(data.day_close[0], bars.loc[:"2025-11-28 12:59", "close"].iloc[-1])
+
+
+def test_prev_close_is_the_previous_session_even_if_that_day_is_dropped():
+    bars = make_minute_bars(n_days=3, seed=10)
+    day = bars.index.normalize()
+    second = day == day.unique()[1]
+    short = bars[~second | (np.cumsum(second) <= 100)]             # day 2 has only 100 bars -> dropped
+    data = build_day_data(short)
+    assert len(data) == 2
+    assert np.isclose(data.prev_close[1], bars[second]["close"].iloc[99])
