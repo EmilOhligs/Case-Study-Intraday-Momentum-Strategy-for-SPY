@@ -23,7 +23,7 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 ## Documentation
 
 - [`docs/assignment.md`](docs/assignment.md): the original case-study assignment and where each task is covered
-- [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is our ML model (features, estimation, CV, AUC).
+- [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is my ML model (features, estimation, CV, AUC).
 - [`docs/extensions.md`](docs/extensions.md): own strategy (ML long/short/flat model): design, hypotheses, validation, results
 - [`docs/results.md`](docs/results.md): the paper in brief, comparison with the authors' reference code, and all results with a discussion of every figure
 - [`docs/tests.md`](docs/tests.md): what each of the 26 unit tests checks

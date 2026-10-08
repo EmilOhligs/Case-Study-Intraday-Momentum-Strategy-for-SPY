@@ -1,6 +1,6 @@
 # Intraday Momentum on SPY – Mathematical Specification
 
-*Part I: the paper's strategy (§1–8). Part II: our own ML strategy (§9–12).*
+*Part I: the paper's strategy (§1–8). Part II: my own ML strategy (§9–12).*
 
 *Based on Zarattini, Aziz & Barbon (2024), "Beat the Market". This document states every step of the strategy and its evaluation as a formula, in the same order as the code in [`src/intraday_momentum/`](../src/intraday_momentum). Each section names the module that implements it.*
 
@@ -201,7 +201,7 @@ Let $R_1,\dots,R_T$ be daily returns, with mean $\bar R$ and sample standard dev
 | Total return | $\prod_{t=1}^T (1+R_t) - 1$ |
 | Annualised return (CAGR) | $\big(\prod_{t=1}^T (1+R_t)\big)^{252/T} - 1$ |
 | Annualised volatility | $s_R \sqrt{252}$ |
-| Sharpe ratio | $\dfrac{\bar R - r_f/252}{s_R}\sqrt{252}$, with $r_f = 0$ in our tables |
+| Sharpe ratio | $\dfrac{\bar R - r_f/252}{s_R}\sqrt{252}$, with $r_f = 0$ in all tables |
 | Max drawdown | $\max_t \big(1 - E_t / \max_{u\le t} E_u\big)$, with $E_t = \prod_{u\le t}(1+R_u)$ |
 | Hit ratio | share of days with $R_t > 0$ among all days with $R_t \neq 0$ (days with a trade) |
 
@@ -395,7 +395,7 @@ The AUC measures how well $\hat p$ *ranks* up- and down-moves, independently of 
 = \Pr\big(\hat p_{\text{up}} > \hat p_{\text{down}}\big).
 ```
 
-AUC = 0.5 means no skill and 1 means perfect ranking. Our test AUC of 0.518 means that in 51.8% of all (up, down) pairs, the up-move received the higher probability.
+AUC = 0.5 means no skill and 1 means perfect ranking. The test AUC of 0.518 means that in 51.8% of all (up, down) pairs, the up-move received the higher probability.
 
 > **Effective sample size.** The 12 observations of a day share the same close, so their labels are strongly dependent. The informative sample size is therefore closer to the number of **days** (≈1,200 in the test period) than to the number of rows (≈14,000). A naive standard error of the AUC based on all rows would be far too small. This is the same issue as the Kish effective sample size for weighted samples: correlated observations carry less information than their count suggests.
 

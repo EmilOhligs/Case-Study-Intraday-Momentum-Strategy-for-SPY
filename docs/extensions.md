@@ -8,7 +8,7 @@
 
 ## 1. Idea and choice of approach
 
-The case study lists "an ML-based model that predicts long/short/flat intraday exposure" as an example of an own variation. We follow that route. A small, interpretable model **replaces** the paper's decision rule, and the paper's insights enter as **features**.
+The case study lists "an ML-based model that predicts long/short/flat intraday exposure" as an example of an own variation. I follow that route. A small, interpretable model **replaces** the paper's decision rule, and the paper's insights enter as **features**.
 
 | Kept from the paper | Changed |
 |---|---|
@@ -176,4 +176,4 @@ In the test period the model is long 45% of the time, short 17% and flat 38% (at
 | **Transient-spike filter** (require the breakout for *m* minutes, or with above-normal volume) | an extension, not an own strategy. Its premise is supported by the data: 34% of Ext. 1 entries are stopped out at the next decision, at −17 bp vs. +12.5 bp for the other trades (train period). Benchmark would be a wider band (VM = 1.5). |
 | **ML meta-labeling** (model vetoes or sizes the paper's trades) | depends on the paper's signal. The paper's FAQ (Q19–21) shows that hard filters often cost total return. |
 
-**Evidence from the paper (§4, FAQ) used in the design:** RSI as a gamma proxy (§4.5, p = 0.001) → `rsi5`. Higher Sharpe at higher volatility (§4.1) → `vol_regime`. Intraday seasonality (FAQ Q18) → `time_of_day`. VWAP as the better stop (§3, FAQ Q22) → `vwap_sigma`. All of §4 is in-sample in the paper, so we only used it as a source of hypotheses.
+**Evidence from the paper (§4, FAQ) used in the design:** RSI as a gamma proxy (§4.5, p = 0.001) → `rsi5`. Higher Sharpe at higher volatility (§4.1) → `vol_regime`. Intraday seasonality (FAQ Q18) → `time_of_day`. VWAP as the better stop (§3, FAQ Q22) → `vwap_sigma`. All of §4 is in-sample in the paper, so I only used it as a source of hypotheses.
