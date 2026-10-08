@@ -78,7 +78,7 @@ With the typical price $\bar p_{t,j} = (H_{t,j}+L_{t,j}+C_{t,j})/3$:
 \mathrm{VWAP}_{t,k} = \frac{\sum_{j=0}^{k-1} \bar p_{t,j}\,V_{t,j}}{\sum_{j=0}^{k-1} V_{t,j}} .
 ```
 
-It uses only bars up to minute $k$. Mathematically, the VWAP is a weighted mean: the expected price under the normalised volume distribution $V_{t,j}/\sum_i V_{t,i}$, analogous to an ensemble average with volume as the weight, or the centre of mass of the day's trading.
+It uses only bars up to minute $k$. Mathematically, the VWAP is a weighted mean: the expected price under the normalised volume distribution $V_{t,j}/\sum_i V_{t,i}$.
 
 ---
 
