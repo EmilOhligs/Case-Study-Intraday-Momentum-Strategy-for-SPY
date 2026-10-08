@@ -128,8 +128,7 @@ ML_VARIANTS = {"ML: logistic (1x)": "full", "ML: logistic + vol targeting": "vol
 
 
 def evaluate_ml(data: DayData, model: Pipeline, feats: pd.DataFrame, cfg: MLConfig, periods: dict,
-                costs: dict[str, CostConfig], bench: pd.Series | None = None
-                ) -> tuple[pd.DataFrame, dict[tuple[str, str], BacktestResult]]:
+                costs: dict[str, CostConfig]) -> tuple[pd.DataFrame, dict[tuple[str, str], BacktestResult]]:
     """Same output format as evaluation.evaluate(), so ML and paper variants can be concatenated.
 
     Note: the model is fitted on the train period, so the 'Train' rows are in-sample.
@@ -141,9 +140,8 @@ def evaluate_ml(data: DayData, model: Pipeline, feats: pd.DataFrame, cfg: MLConf
             full[(cost_name, name)] = backtest_ml(data, model, feats, cfg, cost, first, last, sizing)
             for pname, (s, e) in periods.items():
                 res = backtest_ml(data, model, feats, cfg, cost, s, e, sizing)
-                b = bench.loc[s:e] if bench is not None else None
                 rows.append({"costs": cost_name, "strategy": name, "period": pname,
-                             **summarize(res.returns, b, res.trades)})
+                             **summarize(res.returns, trades=res.trades)})
     return pd.DataFrame(rows), full
 
 
@@ -161,7 +159,7 @@ class MLRun:
     full: dict
 
 
-def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig], bench: pd.Series | None = None,
+def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig],
                 val_years: tuple[int, ...] | None = None) -> MLRun:
     """End-to-end: features -> CV on the train period -> final fit on train -> evaluation on all periods."""
     train_start, train_end = periods["Train"]
@@ -193,5 +191,5 @@ def ml_pipeline(data: DayData, periods: dict, costs: dict[str, CostConfig], benc
     model = fit(train, cfg)
     auc = pd.Series({"train (in-sample)": roc_auc_score(train["label"], predict_proba(model, train, cfg)),
                      "test": roc_auc_score(test["label"], predict_proba(model, test, cfg))})
-    summary, full = evaluate_ml(data, model, feats, cfg, periods, costs, bench)
+    summary, full = evaluate_ml(data, model, feats, cfg, periods, costs)
     return MLRun(feats, cv, cv_table, comparison, cfg, model, coefficients(model, cfg), auc, summary, full)

@@ -128,13 +128,13 @@ Results by validation year for the selected model (A, C = 0.01, m = 0.02):
 
 ### 6.3 Test period vs. the paper rule (same split, costs and metrics)
 
-| Strategy (test 2022-01 – 2026-10) | Ann. return | Ann. vol | Sharpe | Max DD | Beta |
-|---|---|---|---|---|---|
-| Ext. 1: band/VWAP stop (1x) | 6.7% | 6.6% | **1.02** | 10.0% | 0.00 |
-| Ext. 2: + vol targeting | 15.8% | 14.2% | **1.10** | 22.3% | −0.04 |
-| **ML: logistic (1x)** | 5.7% | 10.3% | **0.59** | 12.8% | −0.03 |
-| **ML: logistic + vol targeting** | 13.3% | 20.6% | **0.71** | 20.5% | 0.07 |
-| SPY buy & hold | 12.2% | 17.3% | 0.75 | 24.5% | – |
+| Strategy (test 2022-01 – 2026-10) | Ann. return | Ann. vol | Sharpe | Max DD |
+|---|---|---|---|---|
+| Ext. 1: band/VWAP stop (1x) | 6.7% | 6.6% | **1.02** | 10.0% |
+| Ext. 2: + vol targeting | 15.8% | 14.2% | **1.10** | 22.3% |
+| **ML: logistic (1x)** | 5.7% | 10.3% | **0.59** | 12.8% |
+| **ML: logistic + vol targeting** | 13.3% | 20.6% | **0.71** | 20.5% |
+| SPY buy & hold | 12.2% | 17.3% | 0.75 | 24.5% |
 
 In the test period the model is long 45% of the time, short 17% and flat 38% (at decision times), with 1.3 round trips per day.
 

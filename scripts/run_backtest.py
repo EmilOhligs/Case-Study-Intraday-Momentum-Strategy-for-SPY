@@ -1,4 +1,4 @@
-"""Run the full evaluation of the paper replication and save tables + figures to results/.
+"""Run the full evaluation of the paper replication. Figures and summary.md go to results/, raw CSVs to results/tables/.
 
 Usage:
     python scripts/run_backtest.py                 # real data (see scripts/download_data.py)
@@ -37,7 +37,9 @@ def main() -> None:
 
     periods = make_periods(data, split)
     summary, full = evaluate(data, PAPER_VARIANTS, COST_SCENARIOS, periods, bench)
-    summary.to_csv(out / "summary.csv", index=False)
+    tables = out / "tables"
+    tables.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(tables / "summary.csv", index=False)
     with open(out / "summary.md", "w") as f:
         for cost_name, cost in COST_SCENARIOS.items():
             table = format_table(summary_view(summary, cost_name))
@@ -47,15 +49,15 @@ def main() -> None:
     curves = {name: full[("paper", name)].returns for name in PAPER_VARIANTS}
     curves["SPY buy & hold"] = bench.loc[periods["Train"][0]:]
     plot_equity_curves(curves, split, out / "equity_curves.png", "Intraday momentum on SPY vs buy & hold (paper costs)")
-    plot_metric_bars(metric_bar_table(summary, "paper", list(PAPER_VARIANTS) + ["SPY buy & hold"]),
-                     out / "metrics_train_vs_test.png")
+    order = list(PAPER_VARIANTS) + ["SPY buy & hold"]
+    plot_metric_bars(metric_bar_table(summary, "paper", order), out / "metrics_train_vs_test.png")
 
     sens = cost_sensitivity(data, PAPER_VARIANTS, periods["Test"])
-    sens.to_csv(out / "cost_sensitivity.csv")
+    sens.to_csv(tables / "cost_sensitivity.csv")
     plot_cost_sensitivity(sens, out / "cost_sensitivity.png")
 
     grid = parameter_grid(data, PAPER_VARIANTS["Ext. 2: + vol targeting"], COST_SCENARIOS["paper"], periods["Train"])
-    grid.to_csv(out / "robustness_train_sharpe.csv")
+    grid.to_csv(tables / "robustness_train_sharpe.csv")
     print("\nTrain-period Sharpe, lookback x VM (paper variant):\n", grid.round(2).to_string())
 
     ext1 = full[("paper", "Ext. 1: + band/VWAP stop")]

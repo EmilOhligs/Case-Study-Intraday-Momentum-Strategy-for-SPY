@@ -18,13 +18,15 @@ Every day, a time-of-day dependent **Noise Area** is placed around the open: its
 - **Train/test split:** train 2016–2021, test 2022–today. All variants use the **paper's parameters**, so nothing is fitted on the test set. A lookback × volatility-multiplier grid is evaluated **on the train period only** as a robustness check.
 - **No look-ahead:** the signal at 10:00 uses the close of the 09:59 bar; the trade is executed at the **open of the next bar**. The Noise Area and the volatility estimate use only previous days. Both properties are unit-tested (`tests/test_signals.py`).
 - **Costs:** $0.0035/share commission (IBKR, at least $0.35 per order) plus $0.001/share slippage, as in the paper. Plus a cost-sensitivity curve up to $0.0235/share.
-- **Metrics:** annualized return (CAGR), annualized volatility (σ·√252), Sharpe ratio (r_f = 0), max drawdown, hit ratio, skewness, alpha/beta vs SPY.
+- **Metrics:** annualized return (CAGR), annualized volatility (σ·√252), Sharpe ratio (r_f = 0), max drawdown, hit ratio, skewness.
 
 ## Documentation
 
+- [`docs/assignment.md`](docs/assignment.md): the original case-study assignment and where each task is covered
 - [`docs/strategy.md`](docs/strategy.md): mathematical specification. Part I is the paper's strategy and evaluation, Part II is our ML model (features, estimation, CV, AUC).
 - [`docs/extensions.md`](docs/extensions.md): own strategy (ML long/short/flat model): design, hypotheses, validation, results
 - [`docs/report.md`](docs/report.md): case study report covering data, implementation decisions, **cross-check with the authors' reference code**, validation, results and limitations
+- [`docs/tests.md`](docs/tests.md): what each of the 26 unit tests checks
 
 ## Repository structure
 
@@ -34,7 +36,7 @@ src/intraday_momentum/
     data.py        load minute bars -> day x minute matrices (time convention documented here)
     signals.py     Noise Area, VWAP-based stops, trailing daily volatility
     backtest.py    daily event loop: decisions every 30 min, flat at close, per-share costs
-    metrics.py     Sharpe, CAGR, volatility, drawdown, alpha/beta
+    metrics.py     Sharpe, CAGR, volatility, drawdown
     evaluation.py  train/test evaluation, cost sensitivity, parameter grid (shared by notebook and script)
     diagnostics.py trade-level analysis: false breakouts, P&L by entry time / side / year
     features.py    ML features (no look-ahead) and labels
@@ -46,9 +48,9 @@ notebooks/
 scripts/
     download_data.py   Alpaca download
     run_backtest.py    paper replication -> results/
-    run_ml.py          own ML strategy -> results/ml_*
-tests/                 pytest suite (look-ahead, P&L accounting, metrics)
-results/               tables and figures
+    run_ml.py          own ML strategy + overview of all implementations -> results/
+tests/                 pytest suite (look-ahead, P&L accounting, metrics), explained in docs/tests.md
+results/               figures and summary tables (index: results/README.md), raw CSVs in results/tables/
 ```
 
 ## How to run
@@ -60,7 +62,7 @@ cp .env.example .env               # add your Alpaca API keys
 python scripts/download_data.py    # ~10 years of SPY minute bars into data/
 jupyter lab notebooks/backtest.ipynb   # interactive analysis
 python scripts/run_backtest.py     # paper replication, headless -> results/
-python scripts/run_ml.py           # own ML strategy, headless -> results/ml_*
+python scripts/run_ml.py           # own ML strategy, headless -> results/
 pytest                             # run the tests
 ```
 

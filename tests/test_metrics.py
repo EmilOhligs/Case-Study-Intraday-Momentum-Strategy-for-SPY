@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from intraday_momentum.metrics import alpha_beta, annualized_return, max_drawdown, sharpe_ratio
+from intraday_momentum.metrics import annualized_return, max_drawdown, sharpe_ratio
 
 
 def _series(x):
@@ -20,10 +20,3 @@ def test_annualized_return_of_constant_daily_return():
 
 def test_max_drawdown():
     assert np.isclose(max_drawdown(_series([0.1, -0.5, 0.2])), 0.5)
-
-
-def test_alpha_beta_recovers_known_coefficients():
-    b = _series(np.random.default_rng(1).normal(0, 0.01, 1000))
-    res = alpha_beta(0.0001 + 0.5 * b, b)
-    assert np.isclose(res["beta"], 0.5)
-    assert np.isclose(res["alpha_ann"], 0.0001 * 252)

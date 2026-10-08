@@ -213,16 +213,6 @@ Let $R_1,\dots,R_T$ be daily returns, with mean $\bar R$ and sample standard dev
 >
 > Strategies should therefore be compared by their **Sharpe ratio**, not by total return. Volatility targeting changes $L_t$ over time, so it *can* change the Sharpe ratio. However, most of the increase in total return from Extension 2 comes from the average leverage.
 
-**Alpha and beta.** We regress strategy returns on SPY returns by OLS:
-
-```math
-R^{\text{strat}}_t = \alpha + \beta\, R^{\text{SPY}}_t + \varepsilon_t,
-\qquad
-\hat{\theta} = (X^\top X)^{-1} X^\top y, \quad X = [\mathbf 1,\ R^{\text{SPY}}].
-```
-
-The standard errors are $\widehat{\mathrm{se}}(\hat\theta_i) = \sqrt{\hat s^2_\varepsilon\,[(X^\top X)^{-1}]_{ii}}$ with $\hat s^2_\varepsilon = \hat\varepsilon^\top\hat\varepsilon/(T-2)$, and the t-statistics are $t_i = \hat\theta_i / \widehat{\mathrm{se}}(\hat\theta_i)$. We report the annualised alpha $252\,\hat\alpha$.
-
 **Statistical significance of the Sharpe ratio.** The t-statistic of the mean daily return is $t = \bar R / (s_R/\sqrt T) = \mathrm{SR}_{\text{daily}}\sqrt T$. With $T = 252\,Y$ days ($Y$ years) this becomes
 
 ```math

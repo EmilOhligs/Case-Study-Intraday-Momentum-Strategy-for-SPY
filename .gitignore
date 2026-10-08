@@ -17,3 +17,6 @@ venv/
 # Smoke-test output on synthetic data
 results/synthetic/
 
+
+# Personal interview prep / migration files (never commit)
+prep/

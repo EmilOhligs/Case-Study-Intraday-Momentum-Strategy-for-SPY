@@ -33,20 +33,7 @@ def max_drawdown(r: pd.Series) -> float:
     return float(-(equity / equity.cummax() - 1).min())
 
 
-def alpha_beta(r: pd.Series, bench: pd.Series) -> dict[str, float]:
-    """OLS  r_t = alpha + beta * bench_t + e_t ; alpha annualized (x252), with t-statistics."""
-    df = pd.concat([r, bench], axis=1, join="inner").dropna()
-    y, x = df.iloc[:, 0].values, df.iloc[:, 1].values
-    X = np.column_stack([np.ones_like(x), x])
-    coef, *_ = np.linalg.lstsq(X, y, rcond=None)
-    resid = y - X @ coef
-    sigma2 = resid @ resid / (len(y) - 2)
-    se = np.sqrt(np.diag(sigma2 * np.linalg.inv(X.T @ X)))
-    return {"alpha_ann": coef[0] * TRADING_DAYS, "alpha_t": coef[0] / se[0], "beta": coef[1], "beta_t": coef[1] / se[1]}
-
-
-def summarize(r: pd.Series, bench: pd.Series | None = None, trades: pd.DataFrame | None = None,
-              rf_annual: float = 0.0) -> dict[str, float]:
+def summarize(r: pd.Series, trades: pd.DataFrame | None = None, rf_annual: float = 0.0) -> dict[str, float]:
     r = r.dropna()
     traded = r[r != 0]
     out = {
@@ -62,8 +49,6 @@ def summarize(r: pd.Series, bench: pd.Series | None = None, trades: pd.DataFrame
         "worst_day": float(r.min()),
         "best_day": float(r.max()),
     }
-    if bench is not None:
-        out.update(alpha_beta(r, bench))
     if trades is not None and len(trades):
         t = trades[(trades["date"] >= r.index[0]) & (trades["date"] <= r.index[-1])]
         out["n_trades"] = len(t)

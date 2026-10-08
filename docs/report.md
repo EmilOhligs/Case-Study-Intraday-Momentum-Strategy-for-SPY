@@ -106,6 +106,8 @@ The authors publish a Python version of their backtest on [concretumgroup.com](h
 
 ## 6. Validation (unit tests, `pytest`)
 
+All 26 tests are explained in [`tests.md`](tests.md). The most important ones:
+
 | Test | What it guarantees |
 |---|---|
 | `test_sigma_has_no_look_ahead` | Changing prices on day *k* leaves σ on days ≤ *k* unchanged. **No look-ahead.** |
@@ -119,7 +121,7 @@ The authors publish a Python version of their backtest on [concretumgroup.com](h
 | `test_vwap_stop_exits_on_reversal_but_opposite_band_holds` | the two stop rules behave as specified |
 | `test_minimum_commission_applies_to_small_orders` | the $0.35 minimum is applied |
 | `test_vol_targeting_caps_leverage` | leverage ≤ 4 |
-| `test_sharpe_is_invariant_to_leverage`, `test_alpha_beta_recovers_known_coefficients`, … | the metrics are correct |
+| `test_sharpe_is_invariant_to_leverage`, … | the metrics are correct |
 | `test_nyse_early_closes`, `test_after_hours_bars_on_half_days_are_dropped` | half days end at 13:00 |
 | `test_false_breakout_is_detected`, … | the trade diagnostics are correct |
 | `test_features_have_no_look_ahead` (ML) | changing prices after a decision time leaves that row's features unchanged |
@@ -143,7 +145,7 @@ Yearly returns of the full model (Ext. 2) vs. the paper's monthly table (FAQ Q4/
 | This repo | −13.4% | −9.3% | 55.6% | 5.7% | 25.3% | 29.7% | 25.1% | 39.2% | 32.6% |
 | Paper | −12.8% | −6.9% | 61.1% | 6.9% | 26.8% | 34.8% | 24.4% | 37.2% | 32.2% |
 
-The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (22–25% vs. 25%), hit ratio (42–46% vs. 43%), positive skew and beta ≈ 0 also match. Our 0.86–0.92 round trips per day correspond to the paper's ~1.8 *orders* per day.
+The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (22–25% vs. 25%), hit ratio (42–46% vs. 43%) and positive skew also match. Our 0.86–0.92 round trips per day correspond to the paper's ~1.8 *orders* per day.
 
 ### 7.2 Train vs. test
 
@@ -156,8 +158,7 @@ The **correlation is 0.99**. Volatility (14.2–14.6% vs. 14.3%), max drawdown (
 
 - The paper's ranking (base < VWAP stop < vol targeting) holds in both periods.
 - Vol targeting adds return mainly through leverage: on average 2.7x, and capped at 4x on 22% of days. Its Sharpe gain is small.
-- Alpha t-statistics for Ext. 2 are 2.7 (train) and 2.4 (test).
-- Figures: `results/metrics_train_vs_test.png`, `results/equity_curves.png`.
+- Figures: `results/metrics_train_vs_test.png`, `results/equity_curves.png`. All implementations side by side, including the own strategy: `results/metrics_overview.png`, `results/risk_return.png`.
 
 ### 7.3 Costs and robustness
 

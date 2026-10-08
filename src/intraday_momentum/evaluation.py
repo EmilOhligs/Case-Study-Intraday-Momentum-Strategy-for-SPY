@@ -25,10 +25,10 @@ COST_SCENARIOS: dict[str, CostConfig] = {
 }
 
 BURN_IN_DAYS = 20   # >= lookback (14) + margin, so the first evaluated day has a full Noise Area
-MAIN_COLUMNS = ["ann_return", "ann_vol", "sharpe", "max_drawdown", "hit_ratio", "skew",
-                "alpha_ann", "beta", "trades_per_day"]
+MAIN_COLUMNS = ["ann_return", "ann_vol", "sharpe", "max_drawdown", "hit_ratio", "skew", "trades_per_day"]
+OVERVIEW_METRICS = ("sharpe", "ann_return", "ann_vol", "max_drawdown")   # panels of the overview figure
 PCT_COLUMNS = ["total_return", "ann_return", "ann_vol", "max_drawdown", "hit_ratio", "worst_day",
-               "best_day", "alpha_ann"]
+               "best_day"]
 
 
 def load_project_data(root: str | Path, synthetic: bool = False) -> tuple[DayData, pd.Series]:
@@ -73,9 +73,8 @@ def evaluate(data: DayData, variants: dict[str, StrategyConfig], costs: dict[str
             full_results[(cost_name, vname)] = run_backtest(data, cfg, cost, start=first_day)
             for pname, (s, e) in periods.items():
                 res = run_backtest(data, cfg, cost, start=s, end=e)
-                b = bench.loc[s:e] if bench is not None else None
                 rows.append({"costs": cost_name, "strategy": vname, "period": pname,
-                             **summarize(res.returns, b, res.trades)})
+                             **summarize(res.returns, trades=res.trades)})
         if include_benchmark and bench is not None:
             for pname, (s, e) in periods.items():
                 rows.append({"costs": cost_name, "strategy": "SPY buy & hold", "period": pname,

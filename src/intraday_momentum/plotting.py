@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import MultipleLocator, PercentFormatter
 
 from .data import DayData
 from .signals import noise_area
@@ -36,24 +37,65 @@ def plot_equity_curves(curves: dict[str, pd.Series], split_date: str | None = No
     return _finish(fig, path)
 
 
+METRIC_LABELS = {"sharpe": "Sharpe ratio", "ann_return": "Annualized return", "ann_vol": "Annualized volatility",
+                 "max_drawdown": "Max drawdown", "hit_ratio": "Hit ratio"}
+PERIOD_COLORS = ["#8d99ae", "#1f3b73"]
+
+
 def plot_metric_bars(summary: pd.DataFrame, path: Path | None = None,
-                     metrics=("sharpe", "ann_return", "ann_vol")) -> plt.Figure:
-    """summary: rows = strategies, columns = MultiIndex (period, metric)."""
-    labels = {"sharpe": "Sharpe ratio", "ann_return": "Annualized return", "ann_vol": "Annualized volatility"}
+                     metrics=("sharpe", "ann_return", "ann_vol"), ncols: int | None = None) -> plt.Figure:
+    """summary: rows = strategies, columns = MultiIndex (period, metric). One panel per metric."""
     periods = list(dict.fromkeys(summary.columns.get_level_values(0)))
-    fig, axes = plt.subplots(1, len(metrics), figsize=(4.2 * len(metrics), 4.2))
+    ncols = ncols or len(metrics)
+    nrows = int(np.ceil(len(metrics) / ncols))
+    width = max(4.2, 0.9 * len(summary)) * ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(width, 4.2 * nrows), squeeze=False)
     x = np.arange(len(summary))
     w = 0.8 / len(periods)
-    for ax, m in zip(axes, metrics):
-        for k, (p, c) in enumerate(zip(periods, ["#8d99ae", "#1f3b73"])):
+    for ax, m in zip(axes.flat, metrics):
+        for k, (p, c) in enumerate(zip(periods, PERIOD_COLORS)):
             vals = summary[(p, m)].values
             bars = ax.bar(x + (k - (len(periods) - 1) / 2) * w, vals, w, label=p, color=c)
             fmt = "{:.2f}" if m == "sharpe" else "{:.0%}"
-            ax.bar_label(bars, [fmt.format(v) for v in vals], fontsize=7)
+            ax.bar_label(bars, [fmt.format(v).replace("-0%", "0%") for v in vals], fontsize=7)
+        if m != "sharpe":
+            ax.yaxis.set_major_locator(MultipleLocator(0.05))
+            ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+        ax.axhline(0, color="k", lw=0.8)
         ax.set_xticks(x, summary.index, rotation=25, ha="right", fontsize=8)
-        ax.set_title(labels.get(m, m))
+        ax.set_title(METRIC_LABELS.get(m, m))
         ax.grid(axis="y", alpha=0.3)
-    axes[0].legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1.08), ncol=2)
+    for ax in axes.flat[len(metrics):]:
+        ax.set_visible(False)
+    axes[0, 0].legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1.08), ncol=2)
+    return _finish(fig, path)
+
+
+def plot_risk_return(summary: pd.DataFrame, path: Path | None = None) -> plt.Figure:
+    """Annualized return vs. volatility, one panel per period. summary: as for plot_metric_bars.
+
+    Strategies on the same dashed line have the same return per unit of risk, so leverage moves a
+    strategy along a line and only a better signal moves it to a steeper one.
+    """
+    periods = list(dict.fromkeys(summary.columns.get_level_values(0)))
+    fig, axes = plt.subplots(1, len(periods), figsize=(5.5 * len(periods), 4.6), sharex=True, sharey=True,
+                             squeeze=False)
+    vol_max = summary.xs("ann_vol", axis=1, level=1).max().max() * 1.15
+    for ax, p in zip(axes.flat, periods):
+        for ratio in (0.5, 1.0):
+            ax.plot([0, vol_max], [0, ratio * vol_max], color="grey", ls="--", lw=0.8)
+            ax.text(vol_max, ratio * vol_max, f" return / vol = {ratio}", fontsize=7, color="grey", va="center")
+        for (name, row), c in zip(summary[p].iterrows(), COLORS):
+            ax.scatter(row["ann_vol"], row["ann_return"], color=c, s=70, zorder=3, label=name)
+        ax.axhline(0, color="k", lw=0.8)
+        ax.set_xlim(0, vol_max * 1.3)
+        ax.set_title(f"{p} period")
+        ax.set_xlabel("Annualized volatility")
+        ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+        ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+        ax.grid(alpha=0.3)
+    axes[0, 0].set_ylabel("Annualized return")
+    axes[0, 0].legend(frameon=False, fontsize=8, loc="upper left")
     return _finish(fig, path)
 
 

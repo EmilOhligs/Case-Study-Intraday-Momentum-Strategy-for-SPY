@@ -1,4 +1,4 @@
-"""Own strategy: ML (logistic regression) long/short/flat model. Writes results/ml_*.
+"""Own strategy: ML (logistic regression) long/short/flat model. Figures and ml_summary.md go to results/, raw CSVs to results/tables/.
 
 Usage:
     python scripts/run_ml.py              # real data
@@ -14,11 +14,11 @@ matplotlib.use("Agg")
 
 import pandas as pd  # noqa: E402
 
-from intraday_momentum.evaluation import (COST_SCENARIOS, PAPER_VARIANTS, SUBPERIODS, evaluate, format_table,  # noqa: E402
-                                          load_project_data, make_periods, metric_bar_table, subperiod_table,
-                                          summary_view)
+from intraday_momentum.evaluation import (COST_SCENARIOS, OVERVIEW_METRICS, PAPER_VARIANTS, SUBPERIODS,  # noqa: E402
+                                          evaluate, format_table, load_project_data, make_periods, metric_bar_table,
+                                          subperiod_table, summary_view)
 from intraday_momentum.ml_strategy import ML_VARIANTS, ml_pipeline  # noqa: E402
-from intraday_momentum.plotting import plot_equity_curves, plot_metric_bars  # noqa: E402
+from intraday_momentum.plotting import plot_equity_curves, plot_metric_bars, plot_risk_return  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,15 +35,16 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     periods = make_periods(data, split)
 
-    run = ml_pipeline(data, periods, COST_SCENARIOS, bench)   # CV years: 2018-2021 on real data
-    paper_summary, paper_full = evaluate(data, {k: PAPER_VARIANTS[k] for k in ["Ext. 1: + band/VWAP stop",
-                                                                                 "Ext. 2: + vol targeting"]},
-                                         COST_SCENARIOS, periods, bench)
+    run = ml_pipeline(data, periods, COST_SCENARIOS)   # CV years: 2018-2021 on real data
+    all_paper_summary, paper_full = evaluate(data, PAPER_VARIANTS, COST_SCENARIOS, periods, bench)
+    paper_summary = all_paper_summary[all_paper_summary.strategy != "Base: opposite-band stop"]
     summary = pd.concat([paper_summary, run.summary], ignore_index=True)
-    summary.to_csv(out / "ml_summary.csv", index=False)
-    run.cv_table.to_csv(out / "ml_cv_table.csv")
-    run.feature_set_comparison.to_csv(out / "ml_feature_set_comparison.csv")
-    run.coefficients.to_csv(out / "ml_coefficients.csv")
+    tables = out / "tables"
+    tables.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(tables / "ml_summary.csv", index=False)
+    run.cv_table.to_csv(tables / "ml_cv_table.csv")
+    run.feature_set_comparison.to_csv(tables / "ml_feature_set_comparison.csv")
+    run.coefficients.to_csv(tables / "ml_coefficients.csv")
 
     print("Feature-set comparison (CV on train):\n", run.feature_set_comparison.round(3).to_string())
     print("\nSelected:", run.cfg)
@@ -65,7 +66,12 @@ def main() -> None:
         print(f"\nCorrelation of daily returns ML vs Ext. 1 (test): {corr:.2f}")
         f.write(f"\nCorrelation of daily returns ML vs Ext. 1 (test period): {corr:.2f}\n")
 
-    plot_metric_bars(metric_bar_table(summary, "paper", order), out / "ml_metrics_train_vs_test.png")
+    # all implementations side by side
+    all_summary = pd.concat([all_paper_summary, run.summary], ignore_index=True)
+    all_order = [*PAPER_VARIANTS, *ML_VARIANTS, "SPY buy & hold"]
+    overview = metric_bar_table(all_summary, "paper", all_order, OVERVIEW_METRICS)
+    plot_metric_bars(overview, out / "metrics_overview.png", OVERVIEW_METRICS, ncols=2)
+    plot_risk_return(overview, out / "risk_return.png")
     all_results = {**paper_full, **run.full}
     test_start = periods["Test"][0]
     curves = {name: all_results[("paper", name)].returns.loc[test_start:] for name in order[:-1]}
